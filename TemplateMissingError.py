@@ -1,0 +1,2 @@
+class TemplateMissingError(ValueError):
+    pass
