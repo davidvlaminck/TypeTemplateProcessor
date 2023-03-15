@@ -60,6 +60,8 @@ eig7 = KenmerkEigenschapValueDTO(
     typedValue=EigenschapTypedValueDTO(_type='text', value='invalid_template_key'))
 
 fake_full_attribute_list = KenmerkEigenschapValueDTOList(data=[eig1, eig2, eig3, eig4])
-fake_full_attribute_list_two_template_keys = KenmerkEigenschapValueDTOList(data=[eig1, eig5])
+fake_full_attribute_list_two_template_keys = KenmerkEigenschapValueDTOList(data=[eig5])
 fake_full_attribute_list_only_bestekpostnummer = KenmerkEigenschapValueDTOList(data=[eig1])
-fake_full_attribute_list_without_template_key = KenmerkEigenschapValueDTOList(data=[eig7, eig4])
+fake_full_attribute_list_without_template_key = KenmerkEigenschapValueDTOList(data=[])
+fake_full_attribute_list_without_valid_template_key = KenmerkEigenschapValueDTOList(data=[eig7])
+fake_full_attribute_list_with_one_valid_template_key_in_list = KenmerkEigenschapValueDTOList(data=[eig5])

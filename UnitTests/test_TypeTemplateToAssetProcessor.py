@@ -1,3 +1,6 @@
+import copy
+import pathlib
+import shelve
 from pathlib import Path
 from unittest.mock import Mock, call
 
@@ -10,10 +13,13 @@ from TypeTemplateToAssetProcessor import TypeTemplateToAssetProcessor
 from UnitTests.TestObjects.FakeEigenschapDTO import return_fake_eigenschap
 from UnitTests.TestObjects.FakeEntryObject import fake_entry_object_with_valid_key, fake_entry_object_without_to, \
     fake_entry_object_with_two_valid_keys, fake_entry_object_without_valid_key
-from UnitTests.TestObjects.FakeFeedPage import fake_feedpage_empty_entries
+from UnitTests.TestObjects.FakeFeedPage import fake_feedpage_empty_entries, return_fake_feedpage_without_new_entries
 from UnitTests.TestObjects.FakeKenmerkEigenschapValueDTOList import fake_attribute_list, return_fake_attribute_list, \
     fake_attribute_list2, fake_full_attribute_list, fake_full_attribute_list_two_template_keys, \
-    fake_full_attribute_list_without_template_key, fake_full_attribute_list_only_bestekpostnummer
+    fake_full_attribute_list_without_template_key, fake_full_attribute_list_only_bestekpostnummer, \
+    fake_full_attribute_list_without_valid_template_key, fake_full_attribute_list_with_one_valid_template_key_in_list
+
+THIS_FOLDER = pathlib.Path(__file__).parent
 
 
 def test_init_TypeTemplateToAssetProcessor():
@@ -152,7 +158,7 @@ def test_create_update_dto_happy_flow():
         )
     ]
     update_dto = processor.create_update_dto(template_key='valid_template_key',
-                                             attribute_values=fake_full_attribute_list)
+                                             attribute_values=copy.deepcopy(fake_full_attribute_list))
     assert update_dto == expected_dto
 
 
@@ -165,32 +171,10 @@ def test_create_update_dto_two_valid_template_keys():
         'valid_template_key_2': {},
         'valid_template_key': {
             "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
-                "attributen": {
-                    "theoretischeLevensduur": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur",
-                        "dotnotation": "theoretischeLevensduur",
-                        "type": "None",
-                        "value": "30",
-                        "range": None
-                    },
-                    "materiaal": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis.materiaal",
-                        "dotnotation": "materiaal",
-                        "type": "None",
-                        "value": "hdpe",
-                        "range": None
-                    },
-                    "buitendiameter": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/abstracten#Leiding.buitendiameter",
-                        "dotnotation": "buitendiameter",
-                        "type": "None",
-                        "value": "50",
-                        "range": None
-                    }
-                }}}}
+                "attributen": {}}}}
 
     update_dto = processor.create_update_dto(template_key='valid_template_key',
-                                             attribute_values=fake_full_attribute_list_two_template_keys)
+                                             attribute_values=copy.deepcopy(fake_full_attribute_list_two_template_keys))
     assert update_dto is None
 
 
@@ -203,32 +187,62 @@ def test_create_update_dto_without_template_keys():
         'valid_template_key_2': {},
         'valid_template_key': {
             "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
+                "attributen": {}}}}
+
+    update_dto = processor.create_update_dto(template_key='valid_template_key',
+                                             attribute_values=fake_full_attribute_list_without_template_key)
+    assert update_dto is None
+
+
+def test_create_update_dto_one_valid_template_key_in_list():
+    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
+    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
+                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    processor.postenmapping_dict = {
+        'valid_template_key': {
+            "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
                 "attributen": {
-                    "theoretischeLevensduur": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur",
-                        "dotnotation": "theoretischeLevensduur",
-                        "type": "None",
-                        "value": "30",
-                        "range": None
-                    },
                     "materiaal": {
                         "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis.materiaal",
                         "dotnotation": "materiaal",
                         "type": "None",
                         "value": "hdpe",
                         "range": None
-                    },
-                    "buitendiameter": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/abstracten#Leiding.buitendiameter",
-                        "dotnotation": "buitendiameter",
-                        "type": "None",
-                        "value": "50",
-                        "range": None
-                    }
-                }}}}
+                    }}}}}
+
+    expected_dto = ListUpdateDTOKenmerkEigenschapValueUpdateDTO()
+    expected_dto.data = [
+        KenmerkEigenschapValueUpdateDTO(
+            eigenschap=ResourceRefDTO(uuid='eig_bestekPostNummer'),
+            kenmerkType=ResourceRefDTO(uuid='kenmerktype_uuid'),
+            typedValue=EigenschapTypedValueDTO(_type='list', value=[
+                {'_type': 'text', 'value': 'valid_template_key_2'}])
+        ), KenmerkEigenschapValueUpdateDTO(
+            eigenschap=ResourceRefDTO(uuid='eig_materiaal'),
+            kenmerkType=ResourceRefDTO(uuid='kenmerktype_uuid'),
+            typedValue=EigenschapTypedValueDTO(_type='text', value='hdpe')
+        )
+    ]
+    update_dto = processor.create_update_dto(
+        template_key='valid_template_key',
+        attribute_values=copy.deepcopy(fake_full_attribute_list_with_one_valid_template_key_in_list))
+    assert update_dto == expected_dto
+
+
+def test_create_update_dto_without_valid_template_keys():
+    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
+    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
+                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    processor.postenmapping_dict = {
+        'valid_template_key_2': {},
+        'valid_template_key': {
+            "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
+                "attributen": {}}}}
 
     update_dto = processor.create_update_dto(template_key='valid_template_key',
-                                             attribute_values=fake_full_attribute_list_without_template_key)
+                                             attribute_values=fake_full_attribute_list_without_valid_template_key)
     assert update_dto is None
 
 
@@ -251,8 +265,8 @@ def test_create_update_dto_not_implemented_datatype():
 
     with pytest.raises(NotImplementedError) as exc_info:
         processor.create_update_dto(template_key='valid_template_key',
-                                    attribute_values=fake_full_attribute_list)
-        assert 'no implementation yet for' in str(exc_info.value)
+                                    attribute_values=copy.deepcopy(fake_full_attribute_list))
+    assert 'no implementation yet for' in str(exc_info.value)
 
 
 def test_create_update_dto_complex_datatype():
@@ -271,10 +285,10 @@ def test_create_update_dto_complex_datatype():
                         "value": "30",
                         "range": None
                     }}}}}
-
     with pytest.raises(NotImplementedError) as exc_info:
-        processor.create_update_dto(template_key='valid_template_key', attribute_values=fake_full_attribute_list)
-        assert 'complex datatypes not yet implemented' in str(exc_info.value)
+        processor.create_update_dto(template_key='valid_template_key',
+                                    attribute_values=copy.deepcopy(fake_full_attribute_list))
+    assert 'complex datatypes not yet implemented' in str(exc_info.value)
 
 
 def test_create_update_dto_boolean_datatype():
@@ -310,3 +324,85 @@ def test_create_update_dto_boolean_datatype():
     update_dto = processor.create_update_dto(template_key='valid_template_key',
                                              attribute_values=fake_full_attribute_list_only_bestekpostnummer)
     assert update_dto == expected_dto
+
+
+def test_save_to_shelf():
+    shelve_path = Path(THIS_FOLDER / 'unittest_shelve')
+    try:
+        Path.unlink(Path(THIS_FOLDER / 'unittest_shelve.db'))
+    except FileNotFoundError:
+        pass
+    processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, rest_client=Mock(spec=EMInfraRestClient),
+                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    processor._save_to_shelf(page='123')
+    processor._save_to_shelf(event_id='123')
+    with shelve.open(str(shelve_path)) as db:
+        assert db['page'] == '123'
+        assert db['event_id'] == '123'
+
+
+def test_save_last_event_called_with_process():
+    shelve_path = Path(THIS_FOLDER / 'unittest_shelve')
+    try:
+        Path.unlink(Path(THIS_FOLDER / 'unittest_shelve.db'))
+    except FileNotFoundError:
+        pass
+    processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, rest_client=Mock(spec=EMInfraRestClient),
+                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+
+    def exit_loop():
+        raise StopIteration
+
+    processor.save_last_event = Mock()
+    processor.save_last_event.side_effect = exit_loop
+
+    processor.process()
+    assert processor.save_last_event.called
+
+
+def test_process_loop_no_events():
+    shelve_path = Path(THIS_FOLDER / 'unittest_shelve')
+    try:
+        Path.unlink(Path(THIS_FOLDER / 'unittest_shelve.db'))
+    except FileNotFoundError:
+        pass
+    rest_client = Mock(spec=EMInfraRestClient)
+    processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, rest_client=rest_client,
+                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    processor._save_to_shelf(page='10', event_id='1010')
+
+    def exit_loop():
+        raise StopIteration
+
+    processor.wait_seconds = Mock()
+    processor.wait_seconds.side_effect = exit_loop
+    rest_client.get_feedpage = Mock()
+    rest_client.get_feedpage.side_effect = return_fake_feedpage_without_new_entries
+
+    processor.process()
+    assert processor.wait_seconds.called
+
+
+def test_process_loop_no_events_on_next_page():
+    shelve_path = Path(THIS_FOLDER / 'unittest_shelve')
+    try:
+        Path.unlink(Path(THIS_FOLDER / 'unittest_shelve.db'))
+    except FileNotFoundError:
+        pass
+    rest_client = Mock(spec=EMInfraRestClient)
+    processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, rest_client=rest_client,
+                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    processor._save_to_shelf(page='20', event_id='1010')
+
+    def exit_loop():
+        raise StopIteration
+
+    processor.wait_seconds = Mock()
+    processor.wait_seconds.side_effect = exit_loop
+    rest_client.get_feedpage = Mock()
+    rest_client.get_feedpage.side_effect = return_fake_feedpage_without_new_entries
+
+    processor.process()
+    assert processor.wait_seconds.called
+    with shelve.open(str(shelve_path)) as db:
+        assert db['page'] == '21'

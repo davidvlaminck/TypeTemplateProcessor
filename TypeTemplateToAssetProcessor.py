@@ -17,7 +17,7 @@ class TypeTemplateToAssetProcessor:
         self.shelve_path = shelve_path
         self.rest_client = rest_client
         self.postenmapping_dict = PostenMappingDict.mapping_dict
-        #
+
         # self._save_to_shelf(page='168140', event_id='16814073')
 
     def process(self):
@@ -27,6 +27,8 @@ class TypeTemplateToAssetProcessor:
             except ConnectionError as exc:
                 logging.error(str(exc))
                 time.sleep(60)
+            except StopIteration:
+                break
             except Exception as exc:
                 print(type(exc))
                 logging.error(str(exc))
@@ -38,13 +40,13 @@ class TypeTemplateToAssetProcessor:
                 self.save_last_event()
 
             while True:
-                current_page = self.rest_client.get_feedpage(db['page'])
+                current_page = self.rest_client.get_feedpage(page=str(db['page']))
                 entries_to_process = self.get_entries_to_process(current_page, db['event_id'])
                 if len(entries_to_process) == 0:
                     previous_link = next((link for link in current_page.links if link.rel == 'previous'), None)
                     if previous_link is None:
-                        time.sleep(10)
                         logging.info('No events to process, trying again in 10 seconds.')
+                        self.wait_seconds()
                         continue
                     else:
                         logging.info(f"Done processing page {db['page']}. Going to the next.")
@@ -73,6 +75,10 @@ class TypeTemplateToAssetProcessor:
                     end = time.time()
                     logging.info(f'processed type_template in {round(end - start, 2)} seconds')
 
+    @staticmethod
+    def wait_seconds(seconds: int = 10):
+        time.sleep(10)
+
     def get_current_attribute_values(self, asset_uuid: str, template_key: str) -> (str, KenmerkEigenschapValueDTOList):
         template = self.postenmapping_dict[template_key]
         assettype_uri = list(template.keys())[0]
@@ -81,7 +87,7 @@ class TypeTemplateToAssetProcessor:
             ns = 'installatie'
         return ns, self.rest_client.get_eigenschapwaarden(ns=ns, uuid=asset_uuid)
 
-    def _save_to_shelf(self, event_id: Optional[str], page: Optional[str]) -> None:
+    def _save_to_shelf(self, event_id: Optional[str] = None, page: Optional[str] = None) -> None:
         with shelve.open(self.shelve_path) as db:
             if event_id is not None:
                 db['event_id'] = event_id

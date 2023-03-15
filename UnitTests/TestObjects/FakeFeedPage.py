@@ -10,3 +10,41 @@ fake_feedpage_empty_entries.entries = [
     EntryObject(id='1011'),
     EntryObject(id='1010'),
     EntryObject(id='1009')]
+
+fake_feedpage_without_new_entries = FeedPage(id='EM-Infra change feed', base='/feed', title='EM-Infra change feed',
+                                             updated='2023-01-01T00:00:00.000+01:00')
+fake_feedpage_without_new_entries.links = [
+    Link(rel='self', href='/10/100'),
+    Link(rel='last', href='/0/100'),
+    Link(rel='next', href='/9/100')]
+fake_feedpage_without_new_entries.entries = [
+    EntryObject(id='1010'),
+    EntryObject(id='1009')]
+
+fake_feedpage_with_new_entries_1 = FeedPage(id='EM-Infra change feed', base='/feed', title='EM-Infra change feed',
+                                             updated='2023-01-01T00:00:00.000+01:00')
+fake_feedpage_with_new_entries_1.links = [
+    Link(rel='self', href='/20/100'),
+    Link(rel='previous', href='/21/100'),
+    Link(rel='last', href='/0/100'),
+    Link(rel='next', href='/19/100')]
+fake_feedpage_with_new_entries_1.entries = [
+    EntryObject(id='1010'),
+    EntryObject(id='1009')]
+
+fake_feedpage_with_new_entries_2 = FeedPage(id='EM-Infra change feed', base='/feed', title='EM-Infra change feed',
+                                             updated='2023-01-01T00:00:00.000+01:00')
+fake_feedpage_with_new_entries_2.links = [
+    Link(rel='self', href='/21/100'),
+    Link(rel='last', href='/0/100'),
+    Link(rel='next', href='/20/100')]
+fake_feedpage_with_new_entries_2.entries = []
+
+
+def return_fake_feedpage_without_new_entries(*args, **kwargs):
+    if kwargs['page'] == '10':
+        return fake_feedpage_without_new_entries
+    if kwargs['page'] == '20':
+        return fake_feedpage_with_new_entries_1
+    if kwargs['page'] == '21':
+        return fake_feedpage_with_new_entries_2

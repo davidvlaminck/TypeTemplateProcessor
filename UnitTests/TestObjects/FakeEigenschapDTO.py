@@ -1,3 +1,5 @@
+import copy
+
 from EMInfraDomain import EigenschapDTO, EigenschapTypeDTOType, EigenschapTypeDTO, DatatypeTypeDTO
 
 fake_eig_theoretische_levensduur = EigenschapDTO(
