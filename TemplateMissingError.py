@@ -1,2 +1,0 @@
-class TemplateMissingError(ValueError):
-    pass

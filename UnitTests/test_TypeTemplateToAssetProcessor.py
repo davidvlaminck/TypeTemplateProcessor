@@ -1,13 +1,19 @@
 from pathlib import Path
 from unittest.mock import Mock, call
 
+import pytest
+
+from EMInfraDomain import ListUpdateDTOKenmerkEigenschapValueUpdateDTO, KenmerkEigenschapValueUpdateDTO, ResourceRefDTO, \
+    EigenschapTypedValueDTO
 from EMInfraRestClient import EMInfraRestClient
 from TypeTemplateToAssetProcessor import TypeTemplateToAssetProcessor
+from UnitTests.TestObjects.FakeEigenschapDTO import return_fake_eigenschap
 from UnitTests.TestObjects.FakeEntryObject import fake_entry_object_with_valid_key, fake_entry_object_without_to, \
     fake_entry_object_with_two_valid_keys, fake_entry_object_without_valid_key
 from UnitTests.TestObjects.FakeFeedPage import fake_feedpage_empty_entries
 from UnitTests.TestObjects.FakeKenmerkEigenschapValueDTOList import fake_attribute_list, return_fake_attribute_list, \
-    fake_attribute_list2
+    fake_attribute_list2, fake_full_attribute_list, fake_full_attribute_list_two_template_keys, \
+    fake_full_attribute_list_without_template_key, fake_full_attribute_list_only_bestekpostnummer
 
 
 def test_init_TypeTemplateToAssetProcessor():
@@ -89,3 +95,218 @@ def test_get_current_attribute_values():
                                                                   template_key='valid_template_key_2')
     assert ns2 == 'installatie'
     assert attribute_list2 == fake_attribute_list2
+
+
+def test_create_update_dto_happy_flow():
+    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
+    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
+                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    processor.postenmapping_dict = {
+        'valid_template_key': {
+            "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
+                "attributen": {
+                    "typeURI": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.typeURI",
+                        "dotnotation": "typeURI",
+                        "type": "None",
+                        "value": "Beschermbuis",
+                        "range": None
+                    },
+                    "theoretischeLevensduur": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur",
+                        "dotnotation": "theoretischeLevensduur",
+                        "type": "None",
+                        "value": "30",
+                        "range": None
+                    },
+                    "materiaal": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis.materiaal",
+                        "dotnotation": "materiaal",
+                        "type": "None",
+                        "value": "hdpe",
+                        "range": None
+                    },
+                    "buitendiameter": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/abstracten#Leiding.buitendiameter",
+                        "dotnotation": "buitendiameter",
+                        "type": "None",
+                        "value": "50",
+                        "range": None
+                    }
+                }}}}
+    expected_dto = ListUpdateDTOKenmerkEigenschapValueUpdateDTO()
+    expected_dto.data = [
+        KenmerkEigenschapValueUpdateDTO(
+            eigenschap=ResourceRefDTO(uuid='eig_bestekPostNummer'),
+            kenmerkType=ResourceRefDTO(uuid='kenmerktype_uuid'),
+            typedValue=EigenschapTypedValueDTO(_type='text', value=None)
+        ), KenmerkEigenschapValueUpdateDTO(
+            eigenschap=ResourceRefDTO(uuid='eig_materiaal'),
+            kenmerkType=ResourceRefDTO(uuid='kenmerktype_uuid'),
+            typedValue=EigenschapTypedValueDTO(_type='text', value='hdpe')
+        ), KenmerkEigenschapValueUpdateDTO(
+            eigenschap=ResourceRefDTO(uuid='eig_buitendiameter'),
+            kenmerkType=ResourceRefDTO(uuid='kenmerktype_uuid'),
+            typedValue=EigenschapTypedValueDTO(_type='number', value=50)
+        )
+    ]
+    update_dto = processor.create_update_dto(template_key='valid_template_key',
+                                             attribute_values=fake_full_attribute_list)
+    assert update_dto == expected_dto
+
+
+def test_create_update_dto_two_valid_template_keys():
+    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
+    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
+                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    processor.postenmapping_dict = {
+        'valid_template_key_2': {},
+        'valid_template_key': {
+            "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
+                "attributen": {
+                    "theoretischeLevensduur": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur",
+                        "dotnotation": "theoretischeLevensduur",
+                        "type": "None",
+                        "value": "30",
+                        "range": None
+                    },
+                    "materiaal": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis.materiaal",
+                        "dotnotation": "materiaal",
+                        "type": "None",
+                        "value": "hdpe",
+                        "range": None
+                    },
+                    "buitendiameter": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/abstracten#Leiding.buitendiameter",
+                        "dotnotation": "buitendiameter",
+                        "type": "None",
+                        "value": "50",
+                        "range": None
+                    }
+                }}}}
+
+    update_dto = processor.create_update_dto(template_key='valid_template_key',
+                                             attribute_values=fake_full_attribute_list_two_template_keys)
+    assert update_dto is None
+
+
+def test_create_update_dto_without_template_keys():
+    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
+    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
+                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    processor.postenmapping_dict = {
+        'valid_template_key_2': {},
+        'valid_template_key': {
+            "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
+                "attributen": {
+                    "theoretischeLevensduur": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur",
+                        "dotnotation": "theoretischeLevensduur",
+                        "type": "None",
+                        "value": "30",
+                        "range": None
+                    },
+                    "materiaal": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis.materiaal",
+                        "dotnotation": "materiaal",
+                        "type": "None",
+                        "value": "hdpe",
+                        "range": None
+                    },
+                    "buitendiameter": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/abstracten#Leiding.buitendiameter",
+                        "dotnotation": "buitendiameter",
+                        "type": "None",
+                        "value": "50",
+                        "range": None
+                    }
+                }}}}
+
+    update_dto = processor.create_update_dto(template_key='valid_template_key',
+                                             attribute_values=fake_full_attribute_list_without_template_key)
+    assert update_dto is None
+
+
+def test_create_update_dto_not_implemented_datatype():
+    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
+    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
+                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    processor.postenmapping_dict = {
+        'valid_template_key': {
+            "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
+                "attributen": {
+                    "theoretischeLevensduur": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.not_implemented_type",
+                        "dotnotation": "not_implemented_type",
+                        "type": "None",
+                        "value": "30",
+                        "range": None
+                    }}}}}
+
+    with pytest.raises(NotImplementedError) as exc_info:
+        processor.create_update_dto(template_key='valid_template_key',
+                                    attribute_values=fake_full_attribute_list)
+        assert 'no implementation yet for' in str(exc_info.value)
+
+
+def test_create_update_dto_complex_datatype():
+    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
+    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
+                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    processor.postenmapping_dict = {
+        'valid_template_key': {
+            "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
+                "attributen": {
+                    "theoretischeLevensduur": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.not_implemented_type",
+                        "dotnotation": ".",
+                        "type": "None",
+                        "value": "30",
+                        "range": None
+                    }}}}}
+
+    with pytest.raises(NotImplementedError) as exc_info:
+        processor.create_update_dto(template_key='valid_template_key', attribute_values=fake_full_attribute_list)
+        assert 'complex datatypes not yet implemented' in str(exc_info.value)
+
+
+def test_create_update_dto_boolean_datatype():
+    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
+    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
+                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    processor.postenmapping_dict = {
+        'valid_template_key': {
+            "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
+                "attributen": {
+                    "boolean_type": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.boolean_type",
+                        "dotnotation": "boolean_type",
+                        "type": "None",
+                        "value": "True",
+                        "range": None
+                    }}}}}
+
+    expected_dto = ListUpdateDTOKenmerkEigenschapValueUpdateDTO()
+    expected_dto.data = [
+        KenmerkEigenschapValueUpdateDTO(
+            eigenschap=ResourceRefDTO(uuid='eig_bestekPostNummer'),
+            kenmerkType=ResourceRefDTO(uuid='kenmerktype_uuid'),
+            typedValue=EigenschapTypedValueDTO(_type='text', value=None)
+        ), KenmerkEigenschapValueUpdateDTO(
+            eigenschap=ResourceRefDTO(uuid='eig_boolean_type'),
+            kenmerkType=ResourceRefDTO(uuid='kenmerktype_uuid'),
+            typedValue=EigenschapTypedValueDTO(_type='boolean', value=True)
+        )
+    ]
+
+    update_dto = processor.create_update_dto(template_key='valid_template_key',
+                                             attribute_values=fake_full_attribute_list_only_bestekpostnummer)
+    assert update_dto == expected_dto

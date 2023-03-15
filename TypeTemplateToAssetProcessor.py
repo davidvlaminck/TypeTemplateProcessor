@@ -9,7 +9,7 @@ from EMInfraDomain import KenmerkEigenschapValueUpdateDTO, ResourceRefDTO, Eigen
     KenmerkEigenschapValueDTOList
 from EMInfraRestClient import EMInfraRestClient
 from PostenMappingDict import PostenMappingDict
-from TemplateMissingError import TemplateMissingError
+from InvalidTemplateKeyError import InvalidTemplateKeyError
 
 
 class TypeTemplateToAssetProcessor:
@@ -113,8 +113,7 @@ class TypeTemplateToAssetProcessor:
             return valid_postnummers[0]
         return None
 
-    @staticmethod
-    def create_clean_bestekpost_nummer_eig(eigenschap_waarde: KenmerkEigenschapValueDTO,
+    def create_clean_bestekpost_nummer_eig(self, eigenschap_waarde: KenmerkEigenschapValueDTO,
                                            template_key: str) -> KenmerkEigenschapValueUpdateDTO:
         created_eig = KenmerkEigenschapValueUpdateDTO()
         created_eig.eigenschap = ResourceRefDTO()
@@ -130,20 +129,26 @@ class TypeTemplateToAssetProcessor:
                 created_eig.typedValue.type = 'text'
                 return created_eig
             else:
-                raise TemplateMissingError(f'template key {template_key} missing in bestekpostnummer"{value}"')
+                raise InvalidTemplateKeyError(f'template key {template_key} missing in bestekpostnummer"{value}"')
         elif eigenschap_waarde.typedValue.type == 'list':
             eigenschap_waarde.typedValue.value = list(eigenschap_waarde.typedValue.value)
-            for value_item in eigenschap_waarde.typedValue.value:
-                if value_item['value'] == template_key:
+            valid_template_keys = []
+            for value_item in list(eigenschap_waarde.typedValue.value):
+                possible_template_key = value_item['value']
+                if possible_template_key in self.postenmapping_dict:
+                    valid_template_keys.append(possible_template_key)
                     eigenschap_waarde.typedValue.value.remove(value_item)
-                    created_eig.typedValue.type = 'list'
-                    created_eig.typedValue.value = eigenschap_waarde.typedValue.value
-                    return created_eig
-            raise TemplateMissingError(f'template key {template_key} missing in bestekpostnummer"{value}"')
+            if len(valid_template_keys) != 1:
+                raise InvalidTemplateKeyError(f'found {len(valid_template_keys)} valid template keys, expected 1. '
+                                              f'valid_template_keys: {valid_template_keys}')
+            created_eig.typedValue.type = 'list'
+            created_eig.typedValue.value = eigenschap_waarde.typedValue.value
+            return created_eig
         else:
             raise NotImplementedError('invalid type found in bestekpostnummer')
 
-    def create_update_dto(self, template_key: str, attribute_values: KenmerkEigenschapValueDTOList):
+    def create_update_dto(self, template_key: str, attribute_values: KenmerkEigenschapValueDTOList
+                          ) -> Optional[ListUpdateDTOKenmerkEigenschapValueUpdateDTO]:
         template = self.postenmapping_dict[template_key]
         eigenschap_waarden = attribute_values
         assettype_uri = list(template.keys())[0]
@@ -151,7 +156,10 @@ class TypeTemplateToAssetProcessor:
         attribuut_uris = list(map(lambda x: x['typeURI'], attributen_to_process))
         nieuwe_eig = []
         kenmerktype_uuid = ''
-        for eigenschap_waarde in eigenschap_waarden.data:
+        if 'https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.bestekPostNummer' not in list(
+                map(lambda x: x.eigenschap.uri, eigenschap_waarden.data)):
+            return None
+        for eigenschap_waarde in list(eigenschap_waarden.data):
             if eigenschap_waarde.eigenschap.uri not in attribuut_uris:
                 if eigenschap_waarde.eigenschap.uri == \
                         'https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.bestekPostNummer':
@@ -159,18 +167,17 @@ class TypeTemplateToAssetProcessor:
                     try:
                         nieuwe_eig = [self.create_clean_bestekpost_nummer_eig(eigenschap_waarde=eigenschap_waarde,
                                                                               template_key=template_key)]
-                    except TemplateMissingError:
-                        return
+                    except InvalidTemplateKeyError:
+                        return None
                 eigenschap_waarden.data.remove(eigenschap_waarde)
             else:
                 attribuut = next(
                     x for x in attributen_to_process if x['typeURI'] == eigenschap_waarde.eigenschap.uri)
                 attributen_to_process.remove(attribuut)
         for attribuut in attributen_to_process:
-            eig = self.rest_client.get_eigenschap_by_uri(attribuut['typeURI'])
-            if eig.uri == 'https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.typeURI' or \
-                    eig.uri == 'https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMDBStatus.isActief':
+            if attribuut['typeURI'] == 'https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.typeURI' or attribuut['typeURI'] == 'https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMDBStatus.isActief':
                 continue
+            eig = self.rest_client.get_eigenschap_by_uri(uri=attribuut['typeURI'])
             if '.' in attribuut['dotnotation']:
                 raise NotImplementedError('complex datatypes not yet implemented')
             datatype = eig.type.datatype.type.type

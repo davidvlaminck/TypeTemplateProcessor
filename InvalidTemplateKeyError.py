@@ -1,0 +1,2 @@
+class InvalidTemplateKeyError(ValueError):
+    pass

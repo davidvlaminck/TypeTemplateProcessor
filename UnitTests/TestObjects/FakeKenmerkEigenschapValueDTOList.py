@@ -1,9 +1,12 @@
 from unittest.mock import MagicMock
 
-from EMInfraDomain import KenmerkEigenschapValueDTOList, KenmerkEigenschapValueDTO, EigenschapDTO
+from EMInfraDomain import KenmerkEigenschapValueDTOList, KenmerkEigenschapValueDTO, EigenschapDTO, \
+    EigenschapTypeDTOType, EigenschapTypeDTO, DatatypeTypeDTO, KenmerkTypeDTO, EigenschapTypedValueDTO
 
-fake_attribute_list = KenmerkEigenschapValueDTOList(data=[KenmerkEigenschapValueDTO(eigenschap=EigenschapDTO(naam='eig1'))])
-fake_attribute_list2 = KenmerkEigenschapValueDTOList(data=[KenmerkEigenschapValueDTO(eigenschap=EigenschapDTO(naam='eig2'))])
+fake_attribute_list = KenmerkEigenschapValueDTOList(
+    data=[KenmerkEigenschapValueDTO(eigenschap=EigenschapDTO(naam='eig1'))])
+fake_attribute_list2 = KenmerkEigenschapValueDTOList(
+    data=[KenmerkEigenschapValueDTO(eigenschap=EigenschapDTO(naam='eig2'))])
 
 
 def return_fake_attribute_list(*args, **kwargs):
@@ -15,103 +18,48 @@ def return_fake_attribute_list(*args, **kwargs):
         return Exception("exception occurred")
 
 
-m = MagicMock(side_effect=return_fake_attribute_list)
+eig1 = KenmerkEigenschapValueDTO(
+    eigenschap=EigenschapDTO(
+        uuid='eig_bestekPostNummer',
+        uri='https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.bestekPostNummer',
+        type=EigenschapTypeDTOType(datatype=EigenschapTypeDTO(type=DatatypeTypeDTO(_type='list')))),
+    kenmerkType=KenmerkTypeDTO(uuid='kenmerktype_uuid'),
+    typedValue=EigenschapTypedValueDTO(_type='text', value='valid_template_key'))
+eig2 = KenmerkEigenschapValueDTO(
+    eigenschap=EigenschapDTO(
+        uuid='eig_typeURI',
+        uri='https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.typeURI'))
+eig3 = KenmerkEigenschapValueDTO(
+    eigenschap=EigenschapDTO(
+        uuid='eig_isActief',
+        uri='https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMDBStatus.isActief'))
+eig4 = KenmerkEigenschapValueDTO(
+    eigenschap=EigenschapDTO(
+        uuid='eig_theoretischeLevensduur',
+        uri='https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur')
+)
+eig5 = KenmerkEigenschapValueDTO(
+    eigenschap=EigenschapDTO(
+        uuid='eig_bestekPostNummer',
+        uri='https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.bestekPostNummer',
+        type=EigenschapTypeDTOType(datatype=EigenschapTypeDTO(type=DatatypeTypeDTO(_type='list')))),
+    kenmerkType=KenmerkTypeDTO(uuid='kenmerktype_uuid'),
+    typedValue=EigenschapTypedValueDTO(_type='list', value=[
+        {'_type': 'text', 'value': 'valid_template_key'},
+        {'_type': 'text', 'value': 'valid_template_key_2'}]))
+eig6 = KenmerkEigenschapValueDTO(
+    eigenschap=EigenschapDTO(
+        uuid='eig_boolean_type',
+        uri='https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.boolean_type'))
+eig7 = KenmerkEigenschapValueDTO(
+    eigenschap=EigenschapDTO(
+        uuid='eig_bestekPostNummer',
+        uri='https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.bestekPostNummer',
+        type=EigenschapTypeDTOType(datatype=EigenschapTypeDTO(type=DatatypeTypeDTO(_type='list')))),
+    kenmerkType=KenmerkTypeDTO(uuid='kenmerktype_uuid'),
+    typedValue=EigenschapTypedValueDTO(_type='text', value='invalid_template_key'))
 
-# {
-#   "data": [
-#     {
-#       "typedValue": {
-#         "_type": "number",
-#         "value": 30
-#       },
-#       "determinedOn": "2023-03-14T14:52:18.538+01:00",
-#       "determinedBy": "948a36d4-88ec-4a72-8f09-497a73d4983f",
-#       "eigenschap": {
-#         "uuid": "a4558509-25ef-4a2b-8726-c63519faa500",
-#         "createdOn": "2021-04-29T10:11:00.413+02:00",
-#         "modifiedOn": "2021-04-29T10:11:00.413+02:00",
-#         "uri": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur",
-#         "naam": "theoretischeLevensduur",
-#         "label": "theoretische levensduur",
-#         "actief": true,
-#         "alleenLezen": false,
-#         "definitie": " De levensduur in aantal maanden die theoretisch mag verwacht worden voor een object.",
-#         "categorie": "INVENTARISATIE",
-#         "type": {
-#           "_type": "datatype",
-#           "datatype": {
-#             "uuid": "30377b10-7e4c-41bd-9459-271ec7fb6764",
-#             "createdOn": "2021-04-29T10:10:58.130+02:00",
-#             "modifiedOn": "2021-04-29T10:10:58.130+02:00",
-#             "naam": "KwantWrdInMaand",
-#             "type": {
-#               "_type": "number",
-#               "eenheid": "mo"
-#             },
-#             "definitie": "Een kwantitatieve waarde die een getal in aantal maanden uitdrukt.",
-#             "label": "Kwantitatieve waarde in maand",
-#             "uri": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#KwantWrdInMaand",
-#             "actief": true,
-#             "links": [
-#               {
-#                 "rel": "self",
-#                 "href": "https://apps-tei.mow.vlaanderen.be/eminfra/core/api/datatypes/30377b10-7e4c-41bd-9459-271ec7fb6764"
-#               },
-#               {
-#                 "rel": "created-by",
-#                 "href": "https://apps-tei.mow.vlaanderen.be/eminfra/identiteit/api/identiteiten/cbb6bd3b-33af-4bba-acdd-84ba0dfdf1e3"
-#               },
-#               {
-#                 "rel": "modified-by",
-#                 "href": "https://apps-tei.mow.vlaanderen.be/eminfra/identiteit/api/identiteiten/cbb6bd3b-33af-4bba-acdd-84ba0dfdf1e3"
-#               }
-#             ]
-#           }
-#         },
-#         "kardinaliteitMin": 1,
-#         "kardinaliteitMax": 1,
-#         "links": [
-#           {
-#             "rel": "self",
-#             "href": "https://apps-tei.mow.vlaanderen.be/eminfra/core/api/eigenschappen/a4558509-25ef-4a2b-8726-c63519faa500"
-#           },
-#           {
-#             "rel": "created-by",
-#             "href": "https://apps-tei.mow.vlaanderen.be/eminfra/identiteit/api/identiteiten/cbb6bd3b-33af-4bba-acdd-84ba0dfdf1e3"
-#           },
-#           {
-#             "rel": "modified-by",
-#             "href": "https://apps-tei.mow.vlaanderen.be/eminfra/identiteit/api/identiteiten/cbb6bd3b-33af-4bba-acdd-84ba0dfdf1e3"
-#           }
-#         ]
-#       },
-#       "actief": true,
-#       "kenmerkType": {
-#         "uuid": "f88f4fa1-bfdd-46ab-9908-9483931f59de",
-#         "createdOn": "2022-06-13T14:27:10.846+02:00",
-#         "modifiedOn": "2022-06-13T14:27:10.860+02:00",
-#         "naam": "Eigenschappen - onderdeel#Beschermbuis",
-#         "actief": true,
-#         "predefined": false,
-#         "standard": true,
-#         "definitie": "Standaard kenmerk type voor onderdeel type 'onderdeel#Beschermbuis'",
-#         "links": [
-#           {
-#             "rel": "self",
-#             "href": "https://apps-tei.mow.vlaanderen.be/eminfra/core/api/kenmerktypes/f88f4fa1-bfdd-46ab-9908-9483931f59de"
-#           },
-#           {
-#             "rel": "eigenschappen",
-#             "href": "https://apps-tei.mow.vlaanderen.be/eminfra/core/api/kenmerktypes/f88f4fa1-bfdd-46ab-9908-9483931f59de/eigenschappen"
-#           },
-#           {
-#             "rel": "created-by",
-#             "href": "https://apps-tei.mow.vlaanderen.be/eminfra/identiteit/api/identiteiten/cbb6bd3b-33af-4bba-acdd-84ba0dfdf1e3"
-#           },
-#           {
-#             "rel": "modified-by",
-#             "href": "https://apps-tei.mow.vlaanderen.be/eminfra/identiteit/api/identiteiten/cbb6bd3b-33af-4bba-acdd-84ba0dfdf1e3"
-#           }
-#         ]
-#       }
-#     }
+fake_full_attribute_list = KenmerkEigenschapValueDTOList(data=[eig1, eig2, eig3, eig4])
+fake_full_attribute_list_two_template_keys = KenmerkEigenschapValueDTOList(data=[eig1, eig5])
+fake_full_attribute_list_only_bestekpostnummer = KenmerkEigenschapValueDTOList(data=[eig1])
+fake_full_attribute_list_without_template_key = KenmerkEigenschapValueDTOList(data=[eig7, eig4])
