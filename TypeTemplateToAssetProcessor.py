@@ -1,8 +1,9 @@
+import dbm.ndbm
 import logging
 import shelve
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from EMInfraDomain import KenmerkEigenschapValueUpdateDTO, ResourceRefDTO, EigenschapTypedValueDTO, \
     ListUpdateDTOKenmerkEigenschapValueUpdateDTO, FeedPage, EntryObject, KenmerkEigenschapValueDTO, \
@@ -22,6 +23,9 @@ class TypeTemplateToAssetProcessor:
 
     def process(self):
         while True:
+            if not Path.is_file(self.shelve_path):
+                with dbm.ndbm.open(str(self.shelve_path), 'c'):
+                    pass
             try:
                 self.process_loop()
             except ConnectionError as exc:
@@ -35,7 +39,7 @@ class TypeTemplateToAssetProcessor:
                 time.sleep(60)
 
     def process_loop(self):
-        with shelve.open(self.shelve_path, writeback=True) as db:
+        with shelve.open(str(self.shelve_path), writeback=True) as db:
             if 'event_id' not in db:
                 self.save_last_event()
 
@@ -88,7 +92,7 @@ class TypeTemplateToAssetProcessor:
         return ns, self.rest_client.get_eigenschapwaarden(ns=ns, uuid=asset_uuid)
 
     def _save_to_shelf(self, event_id: Optional[str] = None, page: Optional[str] = None) -> None:
-        with shelve.open(self.shelve_path) as db:
+        with shelve.open(str(self.shelve_path)) as db:
             if event_id is not None:
                 db['event_id'] = event_id
             if page is not None:
