@@ -1,4 +1,5 @@
 import logging
+import pathlib
 from pathlib import Path
 
 from EMInfraRestClient import EMInfraRestClient
@@ -15,7 +16,6 @@ if __name__ == '__main__':
     request_handler = RequestHandler(requester)
     rest_client = EMInfraRestClient(request_handler=request_handler)
 
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), rest_client, postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    this_directory = pathlib.Path(__file__).parent
+    processor = TypeTemplateToAssetProcessor(Path(this_directory / 'shelve'), rest_client, postenmapping_path=Path('Postenmapping beschermbuis.db'))
     processor.process()
-
-    print()
