@@ -73,6 +73,11 @@ class TypeTemplateToAssetProcessor:
                     ns, attribute_values = self.get_current_attribute_values(asset_uuid=asset_uuid,
                                                                              template_key=template_key)
                     update_dto = self.create_update_dto(template_key=template_key, attribute_values=attribute_values)
+                    if update_dto is None:
+                        logging.info(f'Asset {asset_uuid} does not longer need an update by a type template.')
+                        db['event_id'] = entry.id
+                        continue
+
                     self.rest_client.patch_eigenschapwaarden(ns=ns, uuid=asset_uuid, update_dto=update_dto)
 
                     db['event_id'] = entry.id
