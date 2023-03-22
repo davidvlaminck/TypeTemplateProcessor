@@ -1,4 +1,3 @@
-import dbm.ndbm
 import logging
 import shelve
 import time
@@ -24,8 +23,13 @@ class TypeTemplateToAssetProcessor:
     def process(self):
         while True:
             if not Path.is_file(self.shelve_path):
-                with dbm.ndbm.open(str(self.shelve_path), 'c'):
-                    pass
+                try:
+                    import dbm.ndbm
+                    with dbm.ndbm.open(str(self.shelve_path), 'c'):
+                        pass
+                except ModuleNotFoundError:
+                    with shelve.open(str(self.shelve_path)):
+                        pass
             try:
                 self.process_loop()
             except ConnectionError as exc:
