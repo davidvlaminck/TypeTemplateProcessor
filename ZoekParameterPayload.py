@@ -1,6 +1,9 @@
+from typing import Optional
+
+
 class ZoekParameterPayload:
-    def __init__(self, size: int = 100, from_: int = None, from_cursor: str | None = None, paging_mode: str = "CURSOR",
-                 expansions: dict | None = None, settings: dict | None = None, selection: dict | None = None):
+    def __init__(self, size: int = 100, from_: int = None, from_cursor: Optional[str] = None, paging_mode: str = "CURSOR",
+                 expansions:  Optional[dict] = None, settings: Optional[dict] = None, selection: Optional[dict] = None):
         if expansions is None:
             expansions = {}
         if settings is None:
