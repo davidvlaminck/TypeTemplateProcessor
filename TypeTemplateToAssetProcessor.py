@@ -18,8 +18,6 @@ class TypeTemplateToAssetProcessor:
         self.rest_client = rest_client
         self.postenmapping_dict = PostenMappingDict.mapping_dict
 
-        # self._save_to_shelf(page='168140', event_id='16814073')
-
     def process(self):
         while True:
             if not Path.is_file(self.shelve_path):
