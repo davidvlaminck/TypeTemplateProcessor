@@ -7,7 +7,7 @@ from unittest.mock import Mock, call
 import pytest
 
 from EMInfraDomain import ListUpdateDTOKenmerkEigenschapValueUpdateDTO, KenmerkEigenschapValueUpdateDTO, ResourceRefDTO, \
-    EigenschapTypedValueDTO
+    EigenschapTypedValueDTO, EntryObject, ContentObject, AtomValueObject
 from EMInfraRestClient import EMInfraRestClient
 from TypeTemplateToAssetProcessor import TypeTemplateToAssetProcessor
 from UnitTests.TestObjects.FakeEigenschapDTO import return_fake_eigenschap
@@ -397,3 +397,11 @@ def test_process_loop_no_events_on_next_page():
 def test_sleep():
     _, processor, _ = create_processor_unittest_shelve(shelve_name='unittests_2')
     processor.wait_seconds(0)
+
+
+def test_process_all_entries():
+    _, processor, _ = create_processor_unittest_shelve(shelve_name='unittests_6')
+    local_db = {}
+    processor.process_all_entries(db=local_db, entries_to_process=[
+        EntryObject(id='id', content=ContentObject(value=AtomValueObject(_type='SOME_OTHER_TYPE', _typeVersion=1)))])
+    assert local_db['event_id'] == 'id'

@@ -61,7 +61,7 @@ class TypeTemplateToAssetProcessor:
 
                 self.process_all_entries(db, entries_to_process)
 
-    def process_all_entries(self, db, entries_to_process):
+    def process_all_entries(self, db, entries_to_process: List[EntryObject]):
         for entry in entries_to_process:
             start = time.time()
             if entry.content.value.type != 'ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED':
