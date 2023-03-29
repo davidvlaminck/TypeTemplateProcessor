@@ -7,7 +7,8 @@ from unittest.mock import Mock, call
 import pytest
 
 from EMInfraDomain import ListUpdateDTOKenmerkEigenschapValueUpdateDTO, KenmerkEigenschapValueUpdateDTO, ResourceRefDTO, \
-    EigenschapTypedValueDTO, EntryObject, ContentObject, AtomValueObject
+    EigenschapTypedValueDTO, EntryObject, ContentObject, AtomValueObject, AggregateIdObject, \
+    KenmerkEigenschapValueDTOList
 from EMInfraRestClient import EMInfraRestClient
 from TypeTemplateToAssetProcessor import TypeTemplateToAssetProcessor
 from UnitTests.TestObjects.FakeEigenschapDTO import return_fake_eigenschap
@@ -399,9 +400,40 @@ def test_sleep():
     processor.wait_seconds(0)
 
 
-def test_process_all_entries():
+def test_process_all_entries_type_to_ignore():
     _, processor, _ = create_processor_unittest_shelve(shelve_name='unittests_6')
     local_db = {}
     processor.process_all_entries(db=local_db, entries_to_process=[
-        EntryObject(id='id', content=ContentObject(value=AtomValueObject(_type='SOME_OTHER_TYPE', _typeVersion=1)))])
+        EntryObject(id='id', content=ContentObject(value=AtomValueObject(_type='IGNORED_TYPE', _typeVersion=1)))])
+    assert local_db['event_id'] == 'id'
+
+
+def test_process_all_entries_invalid_template_key():
+    _, processor, _ = create_processor_unittest_shelve(shelve_name='unittests_7')
+    local_db = {}
+    processor.get_valid_template_key_from_feedentry = Mock()
+    processor.get_valid_template_key_from_feedentry.side_effect = lambda _: None
+
+    processor.process_all_entries(db=local_db, entries_to_process=[
+        EntryObject(id='id', content=ContentObject(value=AtomValueObject(
+            _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1)))])
+    assert local_db['event_id'] == 'id'
+
+
+def test_process_all_entries_valid_template_key():
+    _, processor, _ = create_processor_unittest_shelve(shelve_name='unittests_8')
+    local_db = {}
+    processor.get_current_attribute_values = Mock()
+    processor.get_current_attribute_values.side_effect = \
+        lambda asset_uuid, template_key: ('onderdeel', KenmerkEigenschapValueDTOList())
+    processor.get_valid_template_key_from_feedentry = Mock()
+    processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
+    processor.create_update_dto = Mock()
+    processor.create_update_dto.side_effect = \
+        lambda template_key, attribute_values: ListUpdateDTOKenmerkEigenschapValueUpdateDTO()
+
+    processor.process_all_entries(db=local_db, entries_to_process=[
+        EntryObject(id='id', content=ContentObject(value=AtomValueObject(
+            _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1,
+            aggregateId=AggregateIdObject(uuid="asset-uuid-0000"))))])
     assert local_db['event_id'] == 'id'
