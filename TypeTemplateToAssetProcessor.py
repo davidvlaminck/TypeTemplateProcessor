@@ -59,32 +59,35 @@ class TypeTemplateToAssetProcessor:
                         db['page'] = previous_link.href.split('/')[1]
                         continue
 
-                for entry in entries_to_process:
-                    start = time.time()
-                    if entry.content.value.type != 'ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED':
-                        db['event_id'] = entry.id
-                        continue
+                self.process_all_entries(db, entries_to_process)
 
-                    template_key = self.get_valid_template_key_from_feedentry(entry)
-                    if template_key is None:
-                        db['event_id'] = entry.id
-                        continue
+    def process_all_entries(self, db, entries_to_process):
+        for entry in entries_to_process:
+            start = time.time()
+            if entry.content.value.type != 'ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED':
+                db['event_id'] = entry.id
+                continue
 
-                    asset_uuid = entry.content.value.aggregateId.uuid
+            template_key = self.get_valid_template_key_from_feedentry(entry)
+            if template_key is None:
+                db['event_id'] = entry.id
+                continue
 
-                    ns, attribute_values = self.get_current_attribute_values(asset_uuid=asset_uuid,
-                                                                             template_key=template_key)
-                    update_dto = self.create_update_dto(template_key=template_key, attribute_values=attribute_values)
-                    if update_dto is None:
-                        logging.info(f'Asset {asset_uuid} does not longer need an update by a type template.')
-                        db['event_id'] = entry.id
-                        continue
+            asset_uuid = entry.content.value.aggregateId.uuid
 
-                    self.rest_client.patch_eigenschapwaarden(ns=ns, uuid=asset_uuid, update_dto=update_dto)
+            ns, attribute_values = self.get_current_attribute_values(asset_uuid=asset_uuid,
+                                                                     template_key=template_key)
+            update_dto = self.create_update_dto(template_key=template_key, attribute_values=attribute_values)
+            if update_dto is None:
+                logging.info(f'Asset {asset_uuid} does not longer need an update by a type template.')
+                db['event_id'] = entry.id
+                continue
 
-                    db['event_id'] = entry.id
-                    end = time.time()
-                    logging.info(f'processed type_template in {round(end - start, 2)} seconds')
+            self.rest_client.patch_eigenschapwaarden(ns=ns, uuid=asset_uuid, update_dto=update_dto)
+
+            db['event_id'] = entry.id
+            end = time.time()
+            logging.info(f'processed type_template in {round(end - start, 2)} seconds')
 
     @staticmethod
     def wait_seconds(seconds: int = 10):
