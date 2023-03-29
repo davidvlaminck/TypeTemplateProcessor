@@ -326,8 +326,8 @@ def test_create_update_dto_boolean_datatype():
     assert update_dto == expected_dto
 
 
-def test_save_to_shelf(create_processor_unittest_shelve):
-    _, processor, shelve_path = create_processor_unittest_shelve
+def test_save_to_shelf():
+    _, processor, shelve_path = create_processor_unittest_shelve(shelve_name='unittests_5')
     processor._save_to_shelf(page='123')
     processor._save_to_shelf(event_id='123')
     with shelve.open(str(shelve_path)) as db:
@@ -335,8 +335,8 @@ def test_save_to_shelf(create_processor_unittest_shelve):
         assert db['event_id'] == '123'
 
 
-def test_save_last_event_called_with_process(create_processor_unittest_shelve):
-    _, processor, _ = create_processor_unittest_shelve
+def test_save_last_event_called_with_process():
+    _, processor, _ = create_processor_unittest_shelve(shelve_name='unittests_4')
 
     def exit_loop():
         raise StopIteration
@@ -348,8 +348,8 @@ def test_save_last_event_called_with_process(create_processor_unittest_shelve):
     assert processor.save_last_event.called
 
 
-def test_process_loop_no_events(create_processor_unittest_shelve):
-    rest_client, processor, _ = create_processor_unittest_shelve
+def test_process_loop_no_events():
+    rest_client, processor, _ = create_processor_unittest_shelve(shelve_name='unittests_3')
     processor._save_to_shelf(page='10', event_id='1010')
 
     def exit_loop():
@@ -364,11 +364,10 @@ def test_process_loop_no_events(create_processor_unittest_shelve):
     assert processor.wait_seconds.called
 
 
-@pytest.fixture
-def create_processor_unittest_shelve():
-    shelve_path = Path(THIS_FOLDER / 'unittest_shelve')
+def create_processor_unittest_shelve(shelve_name: str):
+    shelve_path = Path(THIS_FOLDER / shelve_name)
     try:
-        Path.unlink(Path(THIS_FOLDER / 'unittest_shelve.db'))
+        Path.unlink(Path(THIS_FOLDER / f'{shelve_name}.db'))
     except FileNotFoundError:
         pass
     rest_client = Mock(spec=EMInfraRestClient)
@@ -377,8 +376,8 @@ def create_processor_unittest_shelve():
     return rest_client, processor, shelve_path
 
 
-def test_process_loop_no_events_on_next_page(create_processor_unittest_shelve):
-    rest_client, processor, shelve_path = create_processor_unittest_shelve
+def test_process_loop_no_events_on_next_page():
+    rest_client, processor, shelve_path = create_processor_unittest_shelve(shelve_name='unittests_1')
     processor._save_to_shelf(page='20', event_id='1010')
 
     def exit_loop():
@@ -395,6 +394,6 @@ def test_process_loop_no_events_on_next_page(create_processor_unittest_shelve):
         assert db['page'] == '21'
 
 
-def test_sleep(create_processor_unittest_shelve):
-    _, processor, _ = create_processor_unittest_shelve
+def test_sleep():
+    _, processor, _ = create_processor_unittest_shelve(shelve_name='unittests_2')
     processor.wait_seconds(0)
