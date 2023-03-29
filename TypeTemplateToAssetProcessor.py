@@ -32,13 +32,13 @@ class TypeTemplateToAssetProcessor:
                 self.process_loop()
             except ConnectionError as exc:
                 logging.error(str(exc))
-                time.sleep(60)
+                self.wait_seconds(60)
             except StopIteration:
                 break
             except Exception as exc:
                 print(type(exc))
                 logging.error(str(exc))
-                time.sleep(60)
+                self.wait_seconds(60)
 
     def process_loop(self):
         with shelve.open(str(self.shelve_path), writeback=True) as db:
@@ -88,7 +88,7 @@ class TypeTemplateToAssetProcessor:
 
     @staticmethod
     def wait_seconds(seconds: int = 10):
-        time.sleep(10)
+        time.sleep(seconds)
 
     def get_current_attribute_values(self, asset_uuid: str, template_key: str) -> (str, KenmerkEigenschapValueDTOList):
         template = self.postenmapping_dict[template_key]

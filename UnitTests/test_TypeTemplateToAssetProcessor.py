@@ -326,14 +326,8 @@ def test_create_update_dto_boolean_datatype():
     assert update_dto == expected_dto
 
 
-def test_save_to_shelf():
-    shelve_path = Path(THIS_FOLDER / 'unittest_shelve')
-    try:
-        Path.unlink(Path(THIS_FOLDER / 'unittest_shelve.db'))
-    except FileNotFoundError:
-        pass
-    processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, rest_client=Mock(spec=EMInfraRestClient),
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+def test_save_to_shelf(create_processor_unittest_shelve):
+    _, processor, shelve_path = create_processor_unittest_shelve
     processor._save_to_shelf(page='123')
     processor._save_to_shelf(event_id='123')
     with shelve.open(str(shelve_path)) as db:
@@ -341,14 +335,8 @@ def test_save_to_shelf():
         assert db['event_id'] == '123'
 
 
-def test_save_last_event_called_with_process():
-    shelve_path = Path(THIS_FOLDER / 'unittest_shelve')
-    try:
-        Path.unlink(Path(THIS_FOLDER / 'unittest_shelve.db'))
-    except FileNotFoundError:
-        pass
-    processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, rest_client=Mock(spec=EMInfraRestClient),
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+def test_save_last_event_called_with_process(create_processor_unittest_shelve):
+    _, processor, _ = create_processor_unittest_shelve
 
     def exit_loop():
         raise StopIteration
@@ -360,15 +348,8 @@ def test_save_last_event_called_with_process():
     assert processor.save_last_event.called
 
 
-def test_process_loop_no_events():
-    shelve_path = Path(THIS_FOLDER / 'unittest_shelve')
-    try:
-        Path.unlink(Path(THIS_FOLDER / 'unittest_shelve.db'))
-    except FileNotFoundError:
-        pass
-    rest_client = Mock(spec=EMInfraRestClient)
-    processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, rest_client=rest_client,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+def test_process_loop_no_events(create_processor_unittest_shelve):
+    rest_client, processor, _ = create_processor_unittest_shelve
     processor._save_to_shelf(page='10', event_id='1010')
 
     def exit_loop():
@@ -383,7 +364,8 @@ def test_process_loop_no_events():
     assert processor.wait_seconds.called
 
 
-def test_process_loop_no_events_on_next_page():
+@pytest.fixture
+def create_processor_unittest_shelve():
     shelve_path = Path(THIS_FOLDER / 'unittest_shelve')
     try:
         Path.unlink(Path(THIS_FOLDER / 'unittest_shelve.db'))
@@ -392,6 +374,11 @@ def test_process_loop_no_events_on_next_page():
     rest_client = Mock(spec=EMInfraRestClient)
     processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, rest_client=rest_client,
                                              postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    return rest_client, processor, shelve_path
+
+
+def test_process_loop_no_events_on_next_page(create_processor_unittest_shelve):
+    rest_client, processor, shelve_path = create_processor_unittest_shelve
     processor._save_to_shelf(page='20', event_id='1010')
 
     def exit_loop():
@@ -406,3 +393,8 @@ def test_process_loop_no_events_on_next_page():
     assert processor.wait_seconds.called
     with shelve.open(str(shelve_path)) as db:
         assert db['page'] == '21'
+
+
+def test_sleep(create_processor_unittest_shelve):
+    _, processor, _ = create_processor_unittest_shelve
+    processor.wait_seconds(0)
