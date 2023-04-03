@@ -44,6 +44,8 @@ class TypeTemplateToAssetProcessor:
         with shelve.open(str(self.shelve_path), writeback=True) as db:
             if 'event_id' not in db:
                 self.save_last_event()
+            if 'transaction_context' not in db:
+                db['transaction_context'] = None
 
             while True:
                 current_page = self.rest_client.get_feedpage(page=str(db['page']))
@@ -72,9 +74,34 @@ class TypeTemplateToAssetProcessor:
             if template_key is None:
                 db['event_id'] = entry.id
                 continue
-
             asset_uuid = entry.content.value.aggregateId.uuid
 
+            # determine if a template is single or multiple
+            is_complex_template = self.determine_if_template_is_complex(template_key=template_key)
+
+            if is_complex_template:
+                # if template is complex, determine if the entry has a context
+                # if it has => open a transaction context and process until there a no more
+                #   keep track of all the assets in this context with a valid template key.
+                #   combine those into a single file for DAVIE to upload
+                #   resume with the next event after starting the transaction and skip the assets already processed in this context.
+
+                # if doesn't have a context (DAVIE was not used), apply the template by using a DAVIE upload
+                context_id = entry.content.value.contextId
+                if context_id is None:
+                    self.process_complex_template_using_single_upload(asset_uuid=asset_uuid,
+                                                                      template_key=template_key)
+                    db['event_id'] = entry.id
+                    end = time.time()
+                    logging.info(f'processed type_template in {round(end - start, 2)} seconds')
+                    continue
+                else:
+                    db['transaction_context'] = context_id
+                    db[context_id] = {'asset_uuids': [], 'event_id': entry.id, 'last_processed_event': entry.updated}
+                    self.process_complex_template_using_transaction(template_key=template_key)
+                    continue
+
+            # only valid for a 'single' template
             ns, attribute_values = self.get_current_attribute_values(asset_uuid=asset_uuid,
                                                                      template_key=template_key)
             update_dto = self.create_update_dto(template_key=template_key, attribute_values=attribute_values)
@@ -228,4 +255,11 @@ class TypeTemplateToAssetProcessor:
         update_dto = ListUpdateDTOKenmerkEigenschapValueUpdateDTO()
         update_dto.data = nieuwe_eig
         return update_dto
+
+    def determine_if_template_is_complex(self, template_key):
+        template = self.postenmapping_dict[template_key]
+        return len(template.keys()) > 1
+
+    def process_complex_template_using_single_upload(self, asset_uuid: str, template_key: str) -> None:
+        pass
 
