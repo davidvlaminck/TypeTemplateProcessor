@@ -328,7 +328,7 @@ def test_create_update_dto_boolean_datatype():
 
 
 def test_save_to_shelf():
-    _, processor, shelve_path = create_processor_unittest_shelve(shelve_name='unittests_5')
+    _, processor, shelve_path = create_processor_unittest_shelve(shelve_name='db_unittests_5')
     processor._save_to_shelf(page='123')
     processor._save_to_shelf(event_id='123')
     with shelve.open(str(shelve_path)) as db:
@@ -337,7 +337,7 @@ def test_save_to_shelf():
 
 
 def test_save_last_event_called_with_process():
-    _, processor, _ = create_processor_unittest_shelve(shelve_name='unittests_4')
+    _, processor, _ = create_processor_unittest_shelve(shelve_name='db_unittests_4')
 
     def exit_loop():
         raise StopIteration
@@ -350,7 +350,7 @@ def test_save_last_event_called_with_process():
 
 
 def test_process_loop_no_events():
-    rest_client, processor, _ = create_processor_unittest_shelve(shelve_name='unittests_3')
+    rest_client, processor, _ = create_processor_unittest_shelve(shelve_name='db_unittests_3')
     processor._save_to_shelf(page='10', event_id='1010')
 
     def exit_loop():
@@ -378,7 +378,7 @@ def create_processor_unittest_shelve(shelve_name: str):
 
 
 def test_process_loop_no_events_on_next_page():
-    rest_client, processor, shelve_path = create_processor_unittest_shelve(shelve_name='unittests_1')
+    rest_client, processor, shelve_path = create_processor_unittest_shelve(shelve_name='db_unittests_1')
     processor._save_to_shelf(page='20', event_id='1010')
 
     def exit_loop():
@@ -396,12 +396,12 @@ def test_process_loop_no_events_on_next_page():
 
 
 def test_sleep():
-    _, processor, _ = create_processor_unittest_shelve(shelve_name='unittests_2')
+    _, processor, _ = create_processor_unittest_shelve(shelve_name='db_unittests_2')
     processor.wait_seconds(0)
 
 
 def test_process_all_entries_type_to_ignore():
-    _, processor, _ = create_processor_unittest_shelve(shelve_name='unittests_6')
+    _, processor, _ = create_processor_unittest_shelve(shelve_name='db_unittests_6')
     local_db = {}
     processor.process_all_entries(db=local_db, entries_to_process=[
         EntryObject(id='id', content=ContentObject(value=AtomValueObject(_type='IGNORED_TYPE', _typeVersion=1)))])
@@ -409,7 +409,7 @@ def test_process_all_entries_type_to_ignore():
 
 
 def test_process_all_entries_invalid_template_key():
-    _, processor, _ = create_processor_unittest_shelve(shelve_name='unittests_7')
+    _, processor, _ = create_processor_unittest_shelve(shelve_name='db_unittests_7')
     local_db = {}
     processor.get_valid_template_key_from_feedentry = Mock()
     processor.get_valid_template_key_from_feedentry.side_effect = lambda _: None
@@ -421,7 +421,7 @@ def test_process_all_entries_invalid_template_key():
 
 
 def test_process_all_entries_valid_template_key():
-    _, processor, _ = create_processor_unittest_shelve(shelve_name='unittests_8')
+    _, processor, _ = create_processor_unittest_shelve(shelve_name='db_unittests_8')
     local_db = {}
     processor.get_current_attribute_values = Mock()
     processor.get_current_attribute_values.side_effect = \
