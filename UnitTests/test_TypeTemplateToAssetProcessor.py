@@ -448,6 +448,7 @@ def test_process_all_entries_valid_template_key():
     shelve_name = 'db_unittests_8'
     _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
     local_db = {}
+    processor.postenmapping_dict = {'valid_template_key': {}}
     processor.get_current_attribute_values = Mock()
     processor.get_current_attribute_values.side_effect = \
         lambda asset_uuid, template_key: ('onderdeel', KenmerkEigenschapValueDTOList())
