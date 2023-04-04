@@ -23,18 +23,39 @@ from UnitTests.TestObjects.FakeKenmerkEigenschapValueDTOList import fake_attribu
 THIS_FOLDER = pathlib.Path(__file__).parent
 
 
+def create_processor_unittest_shelve(shelve_name: str) -> (EMInfraRestClient, TypeTemplateToAssetProcessor, Path):
+    shelve_path = Path(THIS_FOLDER / shelve_name)
+    try:
+        Path.unlink(Path(THIS_FOLDER / f'{shelve_name}.db'))
+    except FileNotFoundError:
+        pass
+    rest_client = Mock(spec=EMInfraRestClient)
+    TypeTemplateToAssetProcessor._create_rest_client_based_on_settings = Mock()
+
+    processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, settings_path=None, auth_type=None,
+                                             environment=None, postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    processor.rest_client = rest_client
+    return rest_client, processor, shelve_path
+
+
+def delete_unittest_shelve(shelve_name: str) -> None:
+    import os
+    prefixed = [filename for filename in os.listdir('.') if filename.startswith(shelve_name)]
+    for filename in prefixed:
+        try:
+            Path.unlink(Path(THIS_FOLDER / filename))
+        except FileNotFoundError:
+            pass
+
+
 def test_init_TypeTemplateToAssetProcessor():
-    restclient_mock = Mock(spec=EMInfraRestClient)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    _, processor, _ = create_processor_unittest_shelve('unused_shelve')
     assert processor is not None
 
 
-def test_save_last_event():
-    restclient_mock = Mock(spec=EMInfraRestClient)
+def test_save_last_event_called_with_correct_args():
+    restclient_mock, processor, _ = create_processor_unittest_shelve('unused_shelve')
     restclient_mock.get_current_feedpage = Mock(return_value=fake_feedpage_empty_entries)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
     processor._save_to_shelf = Mock()
     processor.save_last_event()
     assert processor._save_to_shelf.call_args_list == [call(event_id='1011', page='10')]
@@ -48,9 +69,7 @@ def test_get_entries_to_process():
 
 
 def test_get_valid_template_key_from_feedentry_valid_key():
-    restclient_mock = Mock(spec=EMInfraRestClient)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+    _, processor, _ = create_processor_unittest_shelve('unused_shelve')
     processor.postenmapping_dict = {'valid_template_key': None}
 
     template_key = processor.get_valid_template_key_from_feedentry(entry=fake_entry_object_with_valid_key)
@@ -58,37 +77,26 @@ def test_get_valid_template_key_from_feedentry_valid_key():
 
 
 def test_get_valid_template_key_from_feedentry_invalid_key():
-    restclient_mock = Mock(spec=EMInfraRestClient)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
-
+    _, processor, _ = create_processor_unittest_shelve('unused_shelve')
     template_key = processor.get_valid_template_key_from_feedentry(entry=fake_entry_object_without_valid_key)
     assert template_key is None
 
 
 def test_get_valid_template_key_from_feedentry_two_keys():
-    restclient_mock = Mock(spec=EMInfraRestClient)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
-
+    _, processor, _ = create_processor_unittest_shelve('unused_shelve')
     template_key = processor.get_valid_template_key_from_feedentry(entry=fake_entry_object_with_two_valid_keys)
     assert template_key is None
 
 
 def test_get_valid_template_key_from_feedentry_without_to():
-    restclient_mock = Mock(spec=EMInfraRestClient)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
-
+    _, processor, _ = create_processor_unittest_shelve('unused_shelve')
     template_key = processor.get_valid_template_key_from_feedentry(entry=fake_entry_object_without_to)
     assert template_key is None
 
 
 def test_get_current_attribute_values():
-    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock, processor, _ = create_processor_unittest_shelve('unused_shelve')
     restclient_mock.get_eigenschapwaarden = Mock(side_effect=return_fake_attribute_list)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
     processor.postenmapping_dict = {
         'valid_template_key': {'https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis': {}},
         'valid_template_key_2': {'https://wegenenverkeer.data.vlaanderen.be/ns/installatie#Beschermbuis': {}}}
@@ -105,10 +113,8 @@ def test_get_current_attribute_values():
 
 
 def test_create_update_dto_happy_flow():
-    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock, processor, _ = create_processor_unittest_shelve('unused_shelve')
     restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
     processor.postenmapping_dict = {
         'valid_template_key': {
             "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
@@ -164,10 +170,8 @@ def test_create_update_dto_happy_flow():
 
 
 def test_create_update_dto_two_valid_template_keys():
-    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock, processor, _ = create_processor_unittest_shelve('unused_shelve')
     restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
     processor.postenmapping_dict = {
         'valid_template_key_2': {},
         'valid_template_key': {
@@ -180,10 +184,8 @@ def test_create_update_dto_two_valid_template_keys():
 
 
 def test_create_update_dto_without_template_keys():
-    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock, processor, _ = create_processor_unittest_shelve('unused_shelve')
     restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
     processor.postenmapping_dict = {
         'valid_template_key_2': {},
         'valid_template_key': {
@@ -196,10 +198,8 @@ def test_create_update_dto_without_template_keys():
 
 
 def test_create_update_dto_one_valid_template_key_in_list():
-    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock, processor, _ = create_processor_unittest_shelve('unused_shelve')
     restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
     processor.postenmapping_dict = {
         'valid_template_key': {
             "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
@@ -232,10 +232,8 @@ def test_create_update_dto_one_valid_template_key_in_list():
 
 
 def test_create_update_dto_without_valid_template_keys():
-    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock, processor, _ = create_processor_unittest_shelve('unused_shelve')
     restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
     processor.postenmapping_dict = {
         'valid_template_key_2': {},
         'valid_template_key': {
@@ -248,10 +246,8 @@ def test_create_update_dto_without_valid_template_keys():
 
 
 def test_create_update_dto_not_implemented_datatype():
-    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock, processor, _ = create_processor_unittest_shelve('unused_shelve')
     restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
     processor.postenmapping_dict = {
         'valid_template_key': {
             "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
@@ -271,10 +267,8 @@ def test_create_update_dto_not_implemented_datatype():
 
 
 def test_create_update_dto_complex_datatype():
-    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock, processor, _ = create_processor_unittest_shelve('unused_shelve')
     restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
     processor.postenmapping_dict = {
         'valid_template_key': {
             "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
@@ -293,10 +287,8 @@ def test_create_update_dto_complex_datatype():
 
 
 def test_create_update_dto_boolean_datatype():
-    restclient_mock = Mock(spec=EMInfraRestClient)
+    restclient_mock, processor, _ = create_processor_unittest_shelve('unused_shelve')
     restclient_mock.get_eigenschap_by_uri = Mock(side_effect=return_fake_eigenschap)
-    processor = TypeTemplateToAssetProcessor(Path('shelve'), restclient_mock,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
     processor.postenmapping_dict = {
         'valid_template_key': {
             "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Beschermbuis": {
@@ -369,28 +361,6 @@ def test_process_loop_no_events():
     processor.process()
     assert processor.wait_seconds.called
     delete_unittest_shelve(shelve_name)
-
-
-def delete_unittest_shelve(shelve_name: str) -> None:
-    import os
-    prefixed = [filename for filename in os.listdir('.') if filename.startswith(shelve_name)]
-    for filename in prefixed:
-        try:
-            Path.unlink(Path(THIS_FOLDER / filename))
-        except FileNotFoundError:
-            pass
-
-
-def create_processor_unittest_shelve(shelve_name: str) -> (EMInfraRestClient, TypeTemplateToAssetProcessor, Path):
-    shelve_path = Path(THIS_FOLDER / shelve_name)
-    try:
-        Path.unlink(Path(THIS_FOLDER / f'{shelve_name}.db'))
-    except FileNotFoundError:
-        pass
-    rest_client = Mock(spec=EMInfraRestClient)
-    processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, rest_client=rest_client,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
-    return rest_client, processor, shelve_path
 
 
 def test_process_loop_no_events_on_next_page():

@@ -2,7 +2,10 @@ import logging
 import shelve
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
+
+from otlmow_davie.DavieClient import DavieClient
+from otlmow_davie.Enums import AuthenticationType, Environment
 
 from EMInfraDomain import KenmerkEigenschapValueUpdateDTO, ResourceRefDTO, EigenschapTypedValueDTO, \
     ListUpdateDTOKenmerkEigenschapValueUpdateDTO, FeedPage, EntryObject, KenmerkEigenschapValueDTO, \
@@ -10,13 +13,30 @@ from EMInfraDomain import KenmerkEigenschapValueUpdateDTO, ResourceRefDTO, Eigen
 from EMInfraRestClient import EMInfraRestClient
 from PostenMappingDict import PostenMappingDict
 from InvalidTemplateKeyError import InvalidTemplateKeyError
+from RequestHandler import RequestHandler
+from RequesterFactory import RequesterFactory
+from SettingsManager import SettingsManager
 
 
 class TypeTemplateToAssetProcessor:
-    def __init__(self, shelve_path: Path, rest_client: EMInfraRestClient, postenmapping_path: Path):
-        self.shelve_path = shelve_path
-        self.rest_client = rest_client
-        self.postenmapping_dict = PostenMappingDict.mapping_dict
+    def __init__(self, shelve_path: Path, settings_path: Path, auth_type: AuthenticationType, environment: Environment,
+                 postenmapping_path: Path):
+        self.shelve_path: Path = shelve_path
+
+        self.postenmapping_dict: Dict = PostenMappingDict.mapping_dict
+
+        self._create_rest_client_based_on_settings(auth_type, environment, settings_path)
+
+        self._settings_path = settings_path
+        self._auth_type = auth_type
+        self._environment = environment
+
+    def _create_rest_client_based_on_settings(self, auth_type, environment, settings_path):
+        settings_manager = SettingsManager(settings_path)
+        requester = RequesterFactory.create_requester(settings=settings_manager.settings, auth_type=auth_type,
+                                                      environment=environment)
+        request_handler = RequestHandler(requester)
+        self.rest_client: EMInfraRestClient = EMInfraRestClient(request_handler=request_handler)
 
     def process(self):
         while True:
@@ -260,6 +280,15 @@ class TypeTemplateToAssetProcessor:
         template = self.postenmapping_dict[template_key]
         return len(template.keys()) > 1
 
-    def process_complex_template_using_single_upload(self, asset_uuid: str, template_key: str) -> None:
-        pass
+    def process_complex_template_using_single_upload(self, event_id: str, asset_uuid: str, template_key: str) -> None:
+        davie_client = DavieClient(settings_path=self._settings_path,
+                                   auth_type=self._auth_type,
+                                   environment=self._environment)
+
+        aanlevering = davie_client.create_aanlevering_employee(
+            niveau='LOG-1', referentie='b2b integratie test 2',
+            verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')
+        davie_client.upload_file(id=aanlevering.id,
+                                 file_path=Path('type_template_2_buizen.json'))
+        davie_client.finalize_and_wait(id=aanlevering.id)
 
