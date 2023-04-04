@@ -58,7 +58,7 @@ def test_save_last_event_called_with_correct_args():
     restclient_mock.get_current_feedpage = Mock(return_value=fake_feedpage_empty_entries)
     processor._save_to_shelf = Mock()
     processor.save_last_event()
-    assert processor._save_to_shelf.call_args_list == [call(event_id='1011', page='10')]
+    assert processor._save_to_shelf.call_args_list == [call(entries={'event_id': '1011', 'page': '10'})]
 
 
 def test_get_entries_to_process():
@@ -322,8 +322,8 @@ def test_create_update_dto_boolean_datatype():
 def test_save_to_shelf():
     shelve_name = 'db_unittests_5'
     _, processor, shelve_path = create_processor_unittest_shelve(shelve_name=shelve_name)
-    processor._save_to_shelf(page='123')
-    processor._save_to_shelf(event_id='123')
+    processor._save_to_shelf({'page': '123'})
+    processor._save_to_shelf({'event_id': '123'})
     with shelve.open(str(shelve_path)) as db:
         assert db['page'] == '123'
         assert db['event_id'] == '123'
@@ -348,7 +348,7 @@ def test_save_last_event_called_with_process():
 def test_process_loop_no_events():
     shelve_name = 'db_unittests_3'
     rest_client, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
-    processor._save_to_shelf(page='10', event_id='1010')
+    processor._save_to_shelf({'page': '20', 'event_id': '1010'})
 
     def exit_loop():
         raise StopIteration
@@ -366,7 +366,7 @@ def test_process_loop_no_events():
 def test_process_loop_no_events_on_next_page():
     shelve_name = 'db_unittests_1'
     rest_client, processor, shelve_path = create_processor_unittest_shelve(shelve_name=shelve_name)
-    processor._save_to_shelf(page='20', event_id='1010')
+    processor._save_to_shelf({'page': '20', 'event_id': '1010'})
 
     def exit_loop():
         raise StopIteration

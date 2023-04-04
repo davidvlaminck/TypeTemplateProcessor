@@ -148,18 +148,16 @@ class TypeTemplateToAssetProcessor:
             ns = 'installatie'
         return ns, self.rest_client.get_eigenschapwaarden(ns=ns, uuid=asset_uuid)
 
-    def _save_to_shelf(self, event_id: Optional[str] = None, page: Optional[str] = None) -> None:
+    def _save_to_shelf(self, entries: Dict) -> None:
         with shelve.open(str(self.shelve_path)) as db:
-            if event_id is not None:
-                db['event_id'] = event_id
-            if page is not None:
-                db['page'] = page
+            for k, v in entries.items():
+                db[k] = v
 
     def save_last_event(self):
         last_page = self.rest_client.get_current_feedpage()
         sorted_entries = sorted(last_page.entries, key=lambda x: x.id, reverse=True)
         self_link = next(self_link for self_link in last_page.links if self_link.rel == 'self')
-        self._save_to_shelf(event_id=sorted_entries[0].id, page=self_link.href.split('/')[1])
+        self._save_to_shelf(entries={'event_id': sorted_entries[0].id, 'page': self_link.href.split('/')[1]})
 
     @staticmethod
     def get_entries_to_process(current_page: FeedPage, event_id: str) -> List[EntryObject]:
@@ -242,7 +240,10 @@ class TypeTemplateToAssetProcessor:
                     x for x in attributen_to_process if x['typeURI'] == eigenschap_waarde.eigenschap.uri)
                 attributen_to_process.remove(attribuut)
         for attribuut in attributen_to_process:
-            if attribuut['typeURI'] == 'https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.typeURI' or attribuut['typeURI'] == 'https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMDBStatus.isActief':
+            if attribuut[
+                'typeURI'] == 'https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.typeURI' or \
+                    attribuut[
+                        'typeURI'] == 'https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMDBStatus.isActief':
                 continue
             eig = self.rest_client.get_eigenschap_by_uri(uri=attribuut['typeURI'])
             if '.' in attribuut['dotnotation']:
@@ -291,4 +292,3 @@ class TypeTemplateToAssetProcessor:
         davie_client.upload_file(id=aanlevering.id,
                                  file_path=Path('type_template_2_buizen.json'))
         davie_client.finalize_and_wait(id=aanlevering.id)
-
