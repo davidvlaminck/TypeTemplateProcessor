@@ -286,6 +286,8 @@ class TypeTemplateToAssetProcessor:
                                    auth_type=self._auth_type,
                                    environment=self._environment)
 
+        self._save_to_shelf({'single_upload': event_id})
+
         aanlevering = davie_client.create_aanlevering_employee(
             niveau='LOG-1', referentie='b2b integratie test 2',
             verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')
