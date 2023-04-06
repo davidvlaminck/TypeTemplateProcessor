@@ -441,7 +441,7 @@ def test_process_all_entries_no_entries_with_transaction_context():
     shelve_name = 'db_unittests_9'
     _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
     processor.process_complex_template_using_transaction = Mock()
-    processor.process_complex_template_using_transaction.side_effect = lambda: None
+    processor.process_complex_template_using_transaction.side_effect = lambda db: None
     local_db = {'transaction_context': 'something'}
     processor.process_all_entries(db=local_db, entries_to_process=[])
     assert processor.process_complex_template_using_transaction.called
@@ -497,7 +497,7 @@ def test_process_all_entries_transaction_context_process_entry_without_context_l
     shelve_name = 'db_unittests_12'
     _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
     processor.process_complex_template_using_transaction = Mock()
-    processor.process_complex_template_using_transaction.side_effect = lambda: None
+    processor.process_complex_template_using_transaction.side_effect = lambda db: None
     processor.get_valid_template_key_from_feedentry = Mock()
     processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
 
