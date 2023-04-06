@@ -1,12 +1,20 @@
+import copy
+import datetime
 import logging
 import shelve
 import time
 from pathlib import Path
 from typing import List, Optional, Dict
 
+from otlmow_converter.DotnotationHelper import DotnotationHelper
 from otlmow_davie.DavieClient import DavieClient
 from otlmow_davie.Enums import AuthenticationType, Environment
+from otlmow_model.BaseClasses.FloatOrDecimalField import FloatOrDecimalField
+from otlmow_model.BaseClasses.KeuzelijstField import KeuzelijstField
+from otlmow_model.BaseClasses.OTLObject import OTLObject
+from otlmow_model.Helpers.AssetCreator import dynamic_create_instance_from_uri
 
+from EMInfraDecoder import EMInfraDecoder
 from EMInfraDomain import KenmerkEigenschapValueUpdateDTO, ResourceRefDTO, EigenschapTypedValueDTO, \
     ListUpdateDTOKenmerkEigenschapValueUpdateDTO, FeedPage, EntryObject, KenmerkEigenschapValueDTO, \
     KenmerkEigenschapValueDTOList
@@ -66,11 +74,13 @@ class TypeTemplateToAssetProcessor:
                 self.save_last_event()
             if 'transaction_context' not in db:
                 db['transaction_context'] = None
+            if 'contexts' not in db:
+                db['contexts'] = {}
 
             while True:
                 current_page = self.rest_client.get_feedpage(page=str(db['page']))
                 entries_to_process = self.get_entries_to_process(current_page, db['event_id'])
-                if len(entries_to_process) == 0:
+                if len(entries_to_process) == 0 and db['transaction_context'] is None:
                     previous_link = next((link for link in current_page.links if link.rel == 'previous'), None)
                     if previous_link is None:
                         logging.info('No events to process, trying again in 10 seconds.')
@@ -84,6 +94,9 @@ class TypeTemplateToAssetProcessor:
                 self.process_all_entries(db, entries_to_process)
 
     def process_all_entries(self, db, entries_to_process: List[EntryObject]):
+        if len(entries_to_process) == 0 and db['transaction_context'] is not None:
+            self.process_complex_template_using_transaction(db=db)
+
         for entry in entries_to_process:
             start = time.time()
             if entry.content.value.type != 'ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED':
@@ -94,7 +107,27 @@ class TypeTemplateToAssetProcessor:
             if template_key is None:
                 db['event_id'] = entry.id
                 continue
+
             asset_uuid = entry.content.value.aggregateId.uuid
+            context_id = entry.content.value.contextId
+
+            if db['transaction_context'] is not None:
+                # add any assets with a valid template key if they are using the same context_id
+                if context_id is not None and db['transaction_context'].startswith(context_id):
+                    db['contexts'][db['transaction_context']]['asset_uuids'].append(asset_uuid)
+                    db['contexts'][db['transaction_context']]['last_event_id'] = entry.id
+                    db['contexts'][db['transaction_context']]['last_processed_event'] = entry.updated
+                else:
+                    # has it been too long since we last found assets to add?
+                    if self.has_last_processed_been_too_long(
+                            current_updated=entry.updated,
+                            last_processed=db['contexts'][db['transaction_context']]['last_processed_event']):
+                        self.process_complex_template_using_transaction(db=db)
+                        return
+
+                # change event_id and look for more within the same context
+                db['event_id'] = entry.id
+                continue
 
             # determine if a template is single or multiple
             is_complex_template = self.determine_if_template_is_complex(template_key=template_key)
@@ -104,21 +137,35 @@ class TypeTemplateToAssetProcessor:
                 # if it has => open a transaction context and process until there a no more
                 #   keep track of all the assets in this context with a valid template key.
                 #   combine those into a single file for DAVIE to upload
-                #   resume with the next event after starting the transaction and skip the assets already processed in this context.
+                #   resume with the next event after starting the transaction and skip the assets already processed within this context.
 
                 # if doesn't have a context (DAVIE was not used), apply the template by using a DAVIE upload
-                context_id = entry.content.value.contextId
                 if context_id is None:
-                    self.process_complex_template_using_single_upload(asset_uuid=asset_uuid,
-                                                                      template_key=template_key)
+                    self.process_complex_template_using_single_upload(
+                        asset_uuid=asset_uuid, template_key=template_key, event_id=entry.id)
                     db['event_id'] = entry.id
                     end = time.time()
                     logging.info(f'processed type_template in {round(end - start, 2)} seconds')
                     continue
                 else:
-                    db['transaction_context'] = context_id
-                    db[context_id] = {'asset_uuids': [], 'event_id': entry.id, 'last_processed_event': entry.updated}
-                    self.process_complex_template_using_transaction(template_key=template_key)
+                    # check if we need to start a transaction_context
+                    context_entry = context_id + '/' + entry.id
+                    if context_entry in db['contexts']:
+                        db['event_id'] = entry.id
+                        continue  # don't start the same transaction again
+                    for done_context_entry in db['contexts']:
+                        done_context = done_context_entry.split('/', 1)[0]
+                        done_id = db['contexts'][done_context_entry]['last_event_id']
+                        if done_context == context_id and int(done_id) >= int(entry.id):
+                            # already done this one
+                            db['event_id'] = entry.id
+                            continue
+
+                    # yes, start a transaction_context
+                    db['transaction_context'] = context_entry
+                    db['contexts'][context_entry] = {'asset_uuids': [asset_uuid], 'starting_page': db['page'],
+                                                     'last_event_id': entry.id, 'last_processed_event': entry.updated}
+                    db['event_id'] = entry.id
                     continue
 
             # only valid for a 'single' template
@@ -294,3 +341,80 @@ class TypeTemplateToAssetProcessor:
         davie_client.upload_file(id=aanlevering.id,
                                  file_path=Path('type_template_2_buizen.json'))
         davie_client.finalize_and_wait(id=aanlevering.id)
+
+    def process_complex_template_using_transaction(self, db):
+        context_entry = db['transaction_context']
+        asset_uuids = db['contexts'][context_entry]['asset_uuids']
+        asset_dicts = self.rest_client.import_assets_from_webservice_by_uuids(asset_uuids=asset_uuids)
+        objects_to_process = [EMInfraDecoder().decode_json_object(asset_dict) for asset_dict in asset_dicts]
+        
+        objects_to_upload = []
+        for object_to_process in objects_to_process:
+            valid_postnummers = [postnummer for postnummer in object_to_process.bestekPostNummer
+                                 if postnummer in self.postenmapping_dict]
+
+            if len(valid_postnummers) != 1:
+                continue
+
+            objects_to_upload.extend(self.create_assets_from_template(base_asset=object_to_process, 
+                                                                      template_key=valid_postnummers[0]))
+
+        # TODO create objects_to_upload into temp JSON file
+
+        # TODO upload with DAVIE
+
+        # TODO remove temp JSON file
+
+        db['transaction_context'] = None
+        starting_id = context_entry.split('/')[1]
+        db['event_id'] = starting_id
+        db['page'] = db['contexts'][context_entry]['starting_page']
+
+    @staticmethod
+    def has_last_processed_been_too_long(current_updated: datetime, last_processed: datetime.datetime,
+                                         max_interval_in_minutes: int = 1) -> bool:
+        return last_processed + datetime.timedelta(minutes=max_interval_in_minutes) < current_updated
+
+    def create_assets_from_template(self, template_key: str, base_asset: OTLObject) -> List[OTLObject]:
+        # TODO unittest
+        mapping = copy.deepcopy(self.postenmapping_dict[template_key])
+        copy_base_asset = dynamic_create_instance_from_uri(base_asset.typeURI)
+        copy_base_asset.assetId = base_asset.assetId
+        created_assets = [copy_base_asset]
+
+        # change the local id of the base asset to the real id in the mapping
+        base_local_id = next(local_id for local_id, asset_template in mapping.items() if asset_template['isHoofdAsset'])
+        for local_id, asset_template in mapping.items():
+            if local_id == base_local_id:
+                continue
+            if 'bronAssetId.identificator' in asset_template['attributen'] and asset_template[
+                'attributen']['bronAssetId.identificator']['value'] == base_local_id:
+                asset_template['attributen']['bronAssetId.identificator']['value'] = base_asset.assetId.identificator
+            elif 'doelAssetId.identificator' in asset_template['attributen'] and asset_template[
+                'attributen']['doelAssetId.identificator']['value'] == base_local_id:
+                asset_template['attributen']['doelAssetId.identificator']['value'] = base_asset.assetId.identificator
+
+        for asset_to_create in mapping.keys():
+            if asset_to_create != base_local_id:
+                type_uri = mapping[asset_to_create]['typeURI']
+                asset = dynamic_create_instance_from_uri(class_uri=type_uri)
+                created_assets.append(asset)
+            else:
+                asset = copy_base_asset
+
+            for attr in mapping[asset_to_create]['attributen'].values():
+                if attr['value'] is not None:
+                    value = attr['value']
+                    if attr['type'] == 'http://www.w3.org/2001/XMLSchema#decimal':
+                        value = float(attr['value'])
+
+                    if asset == copy_base_asset:
+                        attr = DotnotationHelper.get_attributes_by_dotnotation(
+                            asset, dotnotation=attr['dotnotation'], waarde_shortcut_applicable=True)
+                        if attr[0].waarde is not None:
+                            continue
+
+                    DotnotationHelper.set_attribute_by_dotnotation(asset, dotnotation=attr['dotnotation'],
+                                                                   waarde_shortcut_applicable=True, value=value)
+
+        return created_assets

@@ -73,6 +73,7 @@ class EMInfraRestClient:
         print(f'fetched eigenschapwaarden in {round(end - start, 2)} seconds')
         return eigenschap_waarden
 
+    @functools.lru_cache()
     def get_feedpage(self, page: str) -> FeedPage:
         response = self.request_handler.perform_get_request(
             url=f'core/api/feed/{page}/100')
@@ -94,3 +95,37 @@ class EMInfraRestClient:
         response_string = response.content.decode("utf-8")
         feed_page = FeedPage.parse_raw(response_string)
         return feed_page
+
+    def import_assets_from_webservice_by_uuids(self, asset_uuids: [str]) -> [dict]:
+        asset_list_string = '", "'.join(asset_uuids)
+        filter_string = '{ "uuid": ' + f'["{asset_list_string}"]' + ' }'
+        return self.get_objects_from_oslo_search_endpoint(url_part='assets', filter_string=filter_string)
+
+    def get_objects_from_oslo_search_endpoint(self, url_part: str,
+                                              filter_string: str = '{}', size: int = 100, contact_info: bool = False,
+                                              expansions_string: str = '{}') -> [dict]:
+        paging_cursor = ''
+        url = f'core/api/otl/{url_part}/search'
+        body_fixed_part = '{"size": ' + f'{size}' + ''
+        if filter_string != '{}':
+            body_fixed_part += ', "filters": ' + filter_string
+        if expansions_string != '{}':
+            body_fixed_part += ', "expansions": ' + expansions_string
+
+        while True:
+            body = body_fixed_part
+            if paging_cursor != '':
+                body += ', "fromCursor": ' + f'"{paging_cursor}"'
+            body += '}'
+            json_data = json.loads(body)
+
+            response = self.request_handler.perform_post_request(url=url, json_data=json_data)
+
+            decoded_string = response.content.decode("utf-8")
+            dict_obj = json.loads(decoded_string)
+            keys = response.headers.keys()
+            yield from dict_obj['@graph']
+            if 'em-paging-next-cursor' in keys:
+                paging_cursor = response.headers['em-paging-next-cursor']
+            else:
+                break

@@ -1,4 +1,5 @@
 import copy
+import datetime
 import pathlib
 import shelve
 from pathlib import Path
@@ -417,7 +418,7 @@ def test_process_all_entries_invalid_template_key():
 def test_process_all_entries_valid_template_key():
     shelve_name = 'db_unittests_8'
     _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
-    local_db = {}
+    local_db = {'transaction_context': None}
     processor.postenmapping_dict = {'valid_template_key': {}}
     processor.get_current_attribute_values = Mock()
     processor.get_current_attribute_values.side_effect = \
@@ -431,6 +432,204 @@ def test_process_all_entries_valid_template_key():
     processor.process_all_entries(db=local_db, entries_to_process=[
         EntryObject(id='id', content=ContentObject(value=AtomValueObject(
             _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1,
-            aggregateId=AggregateIdObject(uuid="asset-uuid-0000"))))])
+            aggregateId=AggregateIdObject(uuid='asset-uuid-0000'))))])
     assert local_db['event_id'] == 'id'
+    delete_unittest_shelve(shelve_name)
+
+
+def test_process_all_entries_no_entries_with_transaction_context():
+    shelve_name = 'db_unittests_9'
+    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    processor.process_complex_template_using_transaction = Mock()
+    processor.process_complex_template_using_transaction.side_effect = lambda: None
+    local_db = {'transaction_context': 'something'}
+    processor.process_all_entries(db=local_db, entries_to_process=[])
+    assert processor.process_complex_template_using_transaction.called
+
+
+def test_process_all_entries_transaction_context_add_entry():
+    shelve_name = 'db_unittests_10'
+    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    processor.process_complex_template_using_transaction = Mock()
+    processor.process_complex_template_using_transaction.side_effect = lambda: None
+    processor.get_valid_template_key_from_feedentry = Mock()
+    processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
+
+    local_db = {'transaction_context': 'context_01/1',
+                'contexts': {
+                    'context_01/1': {
+                        'asset_uuids': ['asset-uuid-0001'], 'starting_page': '1', 'last_event_id': '1'}}}
+
+    processor.process_all_entries(db=local_db, entries_to_process=[
+        EntryObject(id='id', content=ContentObject(value=AtomValueObject(
+            _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1, contextId='context_01',
+            aggregateId=AggregateIdObject(uuid='asset-uuid-0002'))))])
+
+    assert local_db['contexts']['context_01/1']['asset_uuids'] == ['asset-uuid-0001', 'asset-uuid-0002']
+    delete_unittest_shelve(shelve_name)
+
+
+def test_process_all_entries_transaction_context_process_entry_without_context_last_processed_ok():
+    shelve_name = 'db_unittests_11'
+    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    processor.process_complex_template_using_transaction = Mock()
+    processor.process_complex_template_using_transaction.side_effect = lambda: None
+    processor.get_valid_template_key_from_feedentry = Mock()
+    processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
+
+    local_db = {'transaction_context': 'context_01/1',
+                'contexts': {
+                    'context_01/1': {
+                        'asset_uuids': ['asset-uuid-0001'], 'starting_page': '1', 'last_event_id': '1',
+                        'last_processed_event': datetime.datetime.utcnow()}}}
+
+    processor.process_all_entries(db=local_db, entries_to_process=[
+        EntryObject(id='id', updated=datetime.datetime.utcnow(), content=ContentObject(value=AtomValueObject(
+            _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1,
+            aggregateId=AggregateIdObject(uuid='asset-uuid-0002'))))])
+
+    assert local_db['contexts']['context_01/1']['asset_uuids'] == ['asset-uuid-0001']
+    assert local_db['event_id'] == 'id'
+    delete_unittest_shelve(shelve_name)
+
+
+def test_process_all_entries_transaction_context_process_entry_without_context_last_processed_too_long_ago():
+    shelve_name = 'db_unittests_12'
+    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    processor.process_complex_template_using_transaction = Mock()
+    processor.process_complex_template_using_transaction.side_effect = lambda: None
+    processor.get_valid_template_key_from_feedentry = Mock()
+    processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
+
+    local_db = {'transaction_context': 'context_01/1',
+                'contexts': {
+                    'context_01/1': {
+                        'asset_uuids': ['asset-uuid-0001'], 'starting_page': '1', 'last_event_id': '1',
+                        'last_processed_event': datetime.datetime(2023, 2, 1, 1, 2, 3)}}}
+
+    processor.process_all_entries(db=local_db, entries_to_process=[
+        EntryObject(id='id', updated=datetime.datetime(2023, 2, 1, 1, 3, 4),
+                    content=ContentObject(value=AtomValueObject(
+                        _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1,
+                        aggregateId=AggregateIdObject(uuid='asset-uuid-0002'))))])
+
+    assert local_db['contexts']['context_01/1']['asset_uuids'] == ['asset-uuid-0001']
+    assert 'event_id' not in local_db
+    assert processor.process_complex_template_using_transaction.called
+    delete_unittest_shelve(shelve_name)
+
+
+def test_process_all_entries_no_transaction_context_complex_template_no_context():
+    shelve_name = 'db_unittests_13'
+    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    processor.process_complex_template_using_single_upload = Mock()
+    processor.process_complex_template_using_single_upload.side_effect = lambda asset_uuid, template_key, event_id: None
+    processor.get_valid_template_key_from_feedentry = Mock()
+    processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
+    processor.determine_if_template_is_complex = Mock()
+    processor.determine_if_template_is_complex.side_effect = lambda template_key: True
+
+    local_db = {'transaction_context': None}
+
+    processor.process_all_entries(db=local_db, entries_to_process=[
+        EntryObject(id='id', content=ContentObject(value=AtomValueObject(
+            _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1,
+            aggregateId=AggregateIdObject(uuid='asset-uuid-0002'))))])
+
+    assert processor.process_complex_template_using_single_upload.called
+    assert local_db['event_id'] == 'id'
+    delete_unittest_shelve(shelve_name)
+
+
+def test_process_all_entries_no_transaction_context_complex_template_new_context():
+    shelve_name = 'db_unittests_14'
+    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    processor.get_valid_template_key_from_feedentry = Mock()
+    processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
+    processor.determine_if_template_is_complex = Mock()
+    processor.determine_if_template_is_complex.side_effect = lambda template_key: True
+
+    local_db = {'transaction_context': None, 'page': '2', 'contexts': {}}
+
+    processor.process_all_entries(db=local_db, entries_to_process=[
+        EntryObject(id='1', updated=datetime.datetime(2023, 2, 1, 1, 2, 3), content=ContentObject(value=AtomValueObject(
+            _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1, contextId='context_01',
+            aggregateId=AggregateIdObject(uuid='asset-uuid-0001'))))])
+
+    assert local_db['event_id'] == '1'
+    assert local_db['transaction_context'] == 'context_01/1'
+    assert 'context_01/1' in local_db['contexts']
+    assert local_db['contexts']['context_01/1']['asset_uuids'] == ['asset-uuid-0001']
+    assert local_db['contexts']['context_01/1']['starting_page'] == '2'
+    assert local_db['contexts']['context_01/1']['last_event_id'] == '1'
+    assert local_db['contexts']['context_01/1']['last_processed_event'] == datetime.datetime(2023, 2, 1, 1, 2, 3)
+    delete_unittest_shelve(shelve_name)
+
+
+def test_process_all_entries_no_transaction_context_complex_template_existing_context_identical_id():
+    shelve_name = 'db_unittests_15'
+    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    processor.get_valid_template_key_from_feedentry = Mock()
+    processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
+    processor.determine_if_template_is_complex = Mock()
+    processor.determine_if_template_is_complex.side_effect = lambda template_key: True
+
+    local_db = {'transaction_context': None, 'page': '2', 'contexts': {
+        'context_01/1': {
+            'asset_uuids': ['asset-uuid-0001'], 'starting_page': '2', 'last_event_id': '1'}}}
+
+    processor.process_all_entries(db=local_db, entries_to_process=[
+        EntryObject(id='1', content=ContentObject(value=AtomValueObject(
+            _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1, contextId='context_01',
+            aggregateId=AggregateIdObject(uuid='asset-uuid-0001'))))])
+
+    assert local_db['event_id'] == '1'
+    delete_unittest_shelve(shelve_name)
+
+
+def test_process_all_entries_no_transaction_context_complex_template_existing_context_already_processed():
+    shelve_name = 'db_unittests_16'
+    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    processor.get_valid_template_key_from_feedentry = Mock()
+    processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
+    processor.determine_if_template_is_complex = Mock()
+    processor.determine_if_template_is_complex.side_effect = lambda template_key: True
+
+    local_db = {'transaction_context': None, 'page': '2', 'contexts': {
+        'context_01/1': {
+            'asset_uuids': ['asset-uuid-0001', 'asset-uuid-0002'], 'starting_page': '2', 'last_event_id': '2'}}}
+
+    processor.process_all_entries(db=local_db, entries_to_process=[
+        EntryObject(id='2', content=ContentObject(value=AtomValueObject(
+            _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1, contextId='context_01',
+            aggregateId=AggregateIdObject(uuid='asset-uuid-0002'))))])
+
+    assert local_db['event_id'] == '2'
+    delete_unittest_shelve(shelve_name)
+
+
+def test_process_all_entries_no_transaction_context_complex_template_existing_context_start_new_context():
+    shelve_name = 'db_unittests_16'
+    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    processor.get_valid_template_key_from_feedentry = Mock()
+    processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
+    processor.determine_if_template_is_complex = Mock()
+    processor.determine_if_template_is_complex.side_effect = lambda template_key: True
+
+    local_db = {'transaction_context': None, 'page': '2', 'contexts': {
+        'context_01/1': {
+            'asset_uuids': ['asset-uuid-0001', 'asset-uuid-0002'], 'starting_page': '2', 'last_event_id': '2'}}}
+
+    processor.process_all_entries(db=local_db, entries_to_process=[
+        EntryObject(id='4', updated=datetime.datetime(2023, 2, 1, 1, 2, 3), content=ContentObject(value=AtomValueObject(
+            _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1, contextId='context_01',
+            aggregateId=AggregateIdObject(uuid='asset-uuid-0004'))))])
+
+    assert local_db['event_id'] == '4'
+    assert local_db['transaction_context'] == 'context_01/4'
+    assert 'context_01/4' in local_db['contexts']
+    assert local_db['contexts']['context_01/4']['asset_uuids'] == ['asset-uuid-0004']
+    assert local_db['contexts']['context_01/4']['starting_page'] == '2'
+    assert local_db['contexts']['context_01/4']['last_event_id'] == '4'
+    assert local_db['contexts']['context_01/4']['last_processed_event'] == datetime.datetime(2023, 2, 1, 1, 2, 3)
     delete_unittest_shelve(shelve_name)
