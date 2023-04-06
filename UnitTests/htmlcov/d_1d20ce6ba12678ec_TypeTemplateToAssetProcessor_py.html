@@ -54,9 +54,9 @@
             </div>
         </aside>
         <h2>
-            <span class="text">221 statements &nbsp;</span>
+            <span class="text">222 statements &nbsp;</span>
             <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">186<span class="text"> run</span></button>
-            <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">35<span class="text"> missing</span></button>
+            <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">36<span class="text"> missing</span></button>
             <button type="button" class="exc show_exc button_toggle_exc" value="exc" data-shortcut="x" title="Toggle lines excluded">0<span class="text"> excluded</span></button>
         </h2>
         <p class="text">
@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="d_fbfa2de4edfd088c_FakeEigenschapDTO_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.2.1">coverage.py v7.2.1</a>,
-            created at 2023-04-04 08:55 +0000
+            created at 2023-04-04 08:59 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"/>
@@ -368,12 +368,14 @@
     <p class="pln"><span class="n"><a id="t286" href="#t286">286</a></span><span class="t">                                   <span class="nam">auth_type</span><span class="op">=</span><span class="nam">self</span><span class="op">.</span><span class="nam">_auth_type</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t287" href="#t287">287</a></span><span class="t">                                   <span class="nam">environment</span><span class="op">=</span><span class="nam">self</span><span class="op">.</span><span class="nam">_environment</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t288" href="#t288">288</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t289" href="#t289">289</a></span><span class="t">        <span class="nam">aanlevering</span> <span class="op">=</span> <span class="nam">davie_client</span><span class="op">.</span><span class="nam">create_aanlevering_employee</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t290" href="#t290">290</a></span><span class="t">            <span class="nam">niveau</span><span class="op">=</span><span class="str">'LOG-1'</span><span class="op">,</span> <span class="nam">referentie</span><span class="op">=</span><span class="str">'b2b integratie test 2'</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t291" href="#t291">291</a></span><span class="t">            <span class="nam">verificatorId</span><span class="op">=</span><span class="str">'6c2b7c0a-11a9-443a-a96b-a1bec249c629'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t292" href="#t292">292</a></span><span class="t">        <span class="nam">davie_client</span><span class="op">.</span><span class="nam">upload_file</span><span class="op">(</span><span class="nam">id</span><span class="op">=</span><span class="nam">aanlevering</span><span class="op">.</span><span class="nam">id</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t293" href="#t293">293</a></span><span class="t">                                 <span class="nam">file_path</span><span class="op">=</span><span class="nam">Path</span><span class="op">(</span><span class="str">'type_template_2_buizen.json'</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t294" href="#t294">294</a></span><span class="t">        <span class="nam">davie_client</span><span class="op">.</span><span class="nam">finalize_and_wait</span><span class="op">(</span><span class="nam">id</span><span class="op">=</span><span class="nam">aanlevering</span><span class="op">.</span><span class="nam">id</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t289" href="#t289">289</a></span><span class="t">        <span class="nam">self</span><span class="op">.</span><span class="nam">_save_to_shelf</span><span class="op">(</span><span class="op">{</span><span class="str">'single_upload'</span><span class="op">:</span> <span class="nam">event_id</span><span class="op">}</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t290" href="#t290">290</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t291" href="#t291">291</a></span><span class="t">        <span class="nam">aanlevering</span> <span class="op">=</span> <span class="nam">davie_client</span><span class="op">.</span><span class="nam">create_aanlevering_employee</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t292" href="#t292">292</a></span><span class="t">            <span class="nam">niveau</span><span class="op">=</span><span class="str">'LOG-1'</span><span class="op">,</span> <span class="nam">referentie</span><span class="op">=</span><span class="str">'b2b integratie test 2'</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t293" href="#t293">293</a></span><span class="t">            <span class="nam">verificatorId</span><span class="op">=</span><span class="str">'6c2b7c0a-11a9-443a-a96b-a1bec249c629'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t294" href="#t294">294</a></span><span class="t">        <span class="nam">davie_client</span><span class="op">.</span><span class="nam">upload_file</span><span class="op">(</span><span class="nam">id</span><span class="op">=</span><span class="nam">aanlevering</span><span class="op">.</span><span class="nam">id</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t295" href="#t295">295</a></span><span class="t">                                 <span class="nam">file_path</span><span class="op">=</span><span class="nam">Path</span><span class="op">(</span><span class="str">'type_template_2_buizen.json'</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t296" href="#t296">296</a></span><span class="t">        <span class="nam">davie_client</span><span class="op">.</span><span class="nam">finalize_and_wait</span><span class="op">(</span><span class="nam">id</span><span class="op">=</span><span class="nam">aanlevering</span><span class="op">.</span><span class="nam">id</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
 </main>
 <footer>
     <div class="content">
@@ -383,7 +385,7 @@
             <a id="nextFileLink" class="nav" href="d_fbfa2de4edfd088c_FakeEigenschapDTO_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.2.1">coverage.py v7.2.1</a>,
-            created at 2023-04-04 08:55 +0000
+            created at 2023-04-04 08:59 +0000
         </p>
     </div>
 </footer>
