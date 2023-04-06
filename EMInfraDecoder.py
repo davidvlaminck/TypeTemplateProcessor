@@ -1,4 +1,5 @@
 ﻿import json
+from typing import List, Dict, Union
 
 from otlmow_converter.FileFormats.DictDecoder import DictDecoder
 from otlmow_model.BaseClasses.OTLObject import OTLObject
@@ -14,8 +15,8 @@ class EMInfraDecoder:
 
         return lijst
 
-    def decode_object(self, objString):
-        obj = json.loads(objString)
+    def decode_object(self, obj_string):
+        obj = json.loads(obj_string)
         return self.decode_json_object(obj)
 
     def decode_json_object(self, obj) -> OTLObject:
@@ -73,7 +74,7 @@ class EMInfraDecoder:
                 instance.geometry = wktstring
 
     @classmethod
-    def trim_json_ld_dict(cls, value) -> dict | list | object:
+    def trim_json_ld_dict(cls, value) -> Union[Dict, List, object]:
         if isinstance(value, dict):
             for k, v in list(value.items()):
                 if '.' not in k:
