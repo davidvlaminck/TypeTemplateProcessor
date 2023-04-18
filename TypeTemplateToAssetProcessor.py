@@ -1,12 +1,14 @@
 import copy
 import datetime
 import logging
+import os
 import shelve
 import time
 from pathlib import Path
 from typing import List, Optional, Dict
 
 from otlmow_converter.DotnotationHelper import DotnotationHelper
+from otlmow_converter.OtlmowConverter import OtlmowConverter
 from otlmow_davie.DavieClient import DavieClient
 from otlmow_davie.Enums import AuthenticationType, Environment
 from otlmow_model.BaseClasses.FloatOrDecimalField import FloatOrDecimalField
@@ -38,6 +40,12 @@ class TypeTemplateToAssetProcessor:
         self._settings_path = settings_path
         self._auth_type = auth_type
         self._environment = environment
+
+        davie_settings_path = Path('settings_davie.json')
+        self.davie_client = DavieClient(settings_path=davie_settings_path,
+                                        shelve_path=Path('davie_shelve'),
+                                        auth_type=AuthenticationType.JWT,
+                                        environment=Environment.tei)
 
     def _create_rest_client_based_on_settings(self, auth_type, environment, settings_path):
         settings_manager = SettingsManager(settings_path)
@@ -149,12 +157,12 @@ class TypeTemplateToAssetProcessor:
                     continue
                 else:
                     # check if we need to start a transaction_context
-                    context_entry = context_id + '/' + entry.id
+                    context_entry = context_id + '_' + entry.id
                     if context_entry in db['contexts']:
                         db['event_id'] = entry.id
                         continue  # don't start the same transaction again
                     for done_context_entry in db['contexts']:
-                        done_context = done_context_entry.split('/', 1)[0]
+                        done_context = done_context_entry.split('_', 1)[0]
                         done_id = db['contexts'][done_context_entry]['last_event_id']
                         if done_context == context_id and int(done_id) >= int(entry.id):
                             # already done this one
@@ -329,25 +337,43 @@ class TypeTemplateToAssetProcessor:
         return len(template.keys()) > 1
 
     def process_complex_template_using_single_upload(self, event_id: str, asset_uuid: str, template_key: str) -> None:
-        davie_client = DavieClient(settings_path=self._settings_path,
-                                   auth_type=self._auth_type,
-                                   environment=self._environment)
-
         self._save_to_shelf({'single_upload': event_id})
 
-        aanlevering = davie_client.create_aanlevering_employee(
-            niveau='LOG-1', referentie='b2b integratie test 2',
+        # TODO check for where in the process this may have been interrupted
+
+        asset_dict = next(self.rest_client.import_assets_from_webservice_by_uuids(asset_uuids=[asset_uuid]))
+        object_to_process = EMInfraDecoder().decode_json_object(obj=asset_dict)
+
+        objects_to_upload = []
+
+        valid_postnummers = [postnummer for postnummer in object_to_process.bestekPostNummer
+                             if postnummer in self.postenmapping_dict]
+
+        if len(valid_postnummers) != 1:
+            return
+
+        objects_to_upload.extend(self.create_assets_from_template(base_asset=object_to_process,
+                                                                  template_key=valid_postnummers[0]))
+
+        converter = OtlmowConverter()
+        file_path = Path(f'temp/{event_id}_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}.json')
+        converter.create_file_from_assets(filepath=file_path, list_of_objects=objects_to_upload)
+
+        aanlevering = self.davie_client.create_aanlevering_employee(
+            niveau='LOG-1', referentie='type template processor with davie test 1',
             verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')
-        davie_client.upload_file(id=aanlevering.id,
-                                 file_path=Path('type_template_2_buizen.json'))
-        davie_client.finalize_and_wait(id=aanlevering.id)
+        self.davie_client.upload_file(id=aanlevering.id, file_path=file_path)
+        self.davie_client.finalize_and_wait(id=aanlevering.id)
+
+        os.unlink(file_path)
+        self._save_to_shelf({'single_upload': None})
 
     def process_complex_template_using_transaction(self, db):
         context_entry = db['transaction_context']
         asset_uuids = db['contexts'][context_entry]['asset_uuids']
         asset_dicts = self.rest_client.import_assets_from_webservice_by_uuids(asset_uuids=asset_uuids)
         objects_to_process = [EMInfraDecoder().decode_json_object(asset_dict) for asset_dict in asset_dicts]
-        
+
         objects_to_upload = []
         for object_to_process in objects_to_process:
             valid_postnummers = [postnummer for postnummer in object_to_process.bestekPostNummer
@@ -356,17 +382,23 @@ class TypeTemplateToAssetProcessor:
             if len(valid_postnummers) != 1:
                 continue
 
-            objects_to_upload.extend(self.create_assets_from_template(base_asset=object_to_process, 
+            objects_to_upload.extend(self.create_assets_from_template(base_asset=object_to_process,
                                                                       template_key=valid_postnummers[0]))
 
-        # TODO create objects_to_upload into temp JSON file
+        converter = OtlmowConverter()
+        file_path = Path(f'temp/{context_entry}_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}.json')
+        converter.create_file_from_assets(filepath=file_path, list_of_objects=objects_to_upload)
 
-        # TODO upload with DAVIE
+        aanlevering = self.davie_client.create_aanlevering_employee(
+            niveau='LOG-1', referentie='type template processor with davie test 1',
+            verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')
+        self.davie_client.upload_file(id=aanlevering.id, file_path=file_path)
+        self.davie_client.finalize_and_wait(id=aanlevering.id)
 
-        # TODO remove temp JSON file
+        os.unlink(file_path)
 
         db['transaction_context'] = None
-        starting_id = context_entry.split('/')[1]
+        starting_id = context_entry.split('_')[1]
         db['event_id'] = starting_id
         db['page'] = db['contexts'][context_entry]['starting_page']
 
@@ -398,6 +430,7 @@ class TypeTemplateToAssetProcessor:
             if asset_to_create != base_local_id:
                 type_uri = mapping[asset_to_create]['typeURI']
                 asset = dynamic_create_instance_from_uri(class_uri=type_uri)
+                asset.assetId.identificator = asset_to_create
                 created_assets.append(asset)
             else:
                 asset = copy_base_asset
@@ -409,9 +442,11 @@ class TypeTemplateToAssetProcessor:
                         value = float(attr['value'])
 
                     if asset == copy_base_asset:
-                        attr = DotnotationHelper.get_attributes_by_dotnotation(
+                        asset_attr = DotnotationHelper.get_attributes_by_dotnotation(
                             asset, dotnotation=attr['dotnotation'], waarde_shortcut_applicable=True)
-                        if attr[0].waarde is not None:
+                        if isinstance(asset_attr, list):
+                            asset_attr=asset_attr[0]
+                        if asset_attr.waarde is not None:
                             continue
 
                     DotnotationHelper.set_attribute_by_dotnotation(asset, dotnotation=attr['dotnotation'],

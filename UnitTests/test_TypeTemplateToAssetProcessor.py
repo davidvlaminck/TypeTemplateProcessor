@@ -557,12 +557,12 @@ def test_process_all_entries_no_transaction_context_complex_template_new_context
             aggregateId=AggregateIdObject(uuid='asset-uuid-0001'))))])
 
     assert local_db['event_id'] == '1'
-    assert local_db['transaction_context'] == 'context_01/1'
-    assert 'context_01/1' in local_db['contexts']
-    assert local_db['contexts']['context_01/1']['asset_uuids'] == ['asset-uuid-0001']
-    assert local_db['contexts']['context_01/1']['starting_page'] == '2'
-    assert local_db['contexts']['context_01/1']['last_event_id'] == '1'
-    assert local_db['contexts']['context_01/1']['last_processed_event'] == datetime.datetime(2023, 2, 1, 1, 2, 3)
+    assert local_db['transaction_context'] == 'context_01_1'
+    assert 'context_01_1' in local_db['contexts']
+    assert local_db['contexts']['context_01_1']['asset_uuids'] == ['asset-uuid-0001']
+    assert local_db['contexts']['context_01_1']['starting_page'] == '2'
+    assert local_db['contexts']['context_01_1']['last_event_id'] == '1'
+    assert local_db['contexts']['context_01_1']['last_processed_event'] == datetime.datetime(2023, 2, 1, 1, 2, 3)
     delete_unittest_shelve(shelve_name)
 
 
@@ -617,7 +617,7 @@ def test_process_all_entries_no_transaction_context_complex_template_existing_co
     processor.determine_if_template_is_complex.side_effect = lambda template_key: True
 
     local_db = {'transaction_context': None, 'page': '2', 'contexts': {
-        'context_01/1': {
+        'context_01_1': {
             'asset_uuids': ['asset-uuid-0001', 'asset-uuid-0002'], 'starting_page': '2', 'last_event_id': '2'}}}
 
     processor.process_all_entries(db=local_db, entries_to_process=[
@@ -626,10 +626,10 @@ def test_process_all_entries_no_transaction_context_complex_template_existing_co
             aggregateId=AggregateIdObject(uuid='asset-uuid-0004'))))])
 
     assert local_db['event_id'] == '4'
-    assert local_db['transaction_context'] == 'context_01/4'
-    assert 'context_01/4' in local_db['contexts']
-    assert local_db['contexts']['context_01/4']['asset_uuids'] == ['asset-uuid-0004']
-    assert local_db['contexts']['context_01/4']['starting_page'] == '2'
-    assert local_db['contexts']['context_01/4']['last_event_id'] == '4'
-    assert local_db['contexts']['context_01/4']['last_processed_event'] == datetime.datetime(2023, 2, 1, 1, 2, 3)
+    assert local_db['transaction_context'] == 'context_01_4'
+    assert 'context_01_4' in local_db['contexts']
+    assert local_db['contexts']['context_01_4']['asset_uuids'] == ['asset-uuid-0004']
+    assert local_db['contexts']['context_01_4']['starting_page'] == '2'
+    assert local_db['contexts']['context_01_4']['last_event_id'] == '4'
+    assert local_db['contexts']['context_01_4']['last_processed_event'] == datetime.datetime(2023, 2, 1, 1, 2, 3)
     delete_unittest_shelve(shelve_name)
