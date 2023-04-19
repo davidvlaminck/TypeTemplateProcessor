@@ -1,6 +1,6 @@
 class PostenMappingDict:
     mapping_dict = {
-    "version": "0.1",
+    "version": "0.3",
     "WVlichtmast_config1": {
         "Lichtmast1": {
             "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#WVLichtmast",
@@ -84,21 +84,83 @@ class PostenMappingDict:
             },
             "isHoofdAsset": False
         },
-        "Bevestiging2": {
-            "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Bevestiging",
+        "VerlichtingstoestelLED1": {
+            "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED",
             "attributen": {
-                "bronAssetId.identificator": {
-                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#DtcIdentificator.identificator",
-                    "dotnotation": "bronAssetId.identificator",
+                "lumenOutput": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.lumenOutput",
+                    "dotnotation": "lumenOutput",
                     "type": "None",
-                    "value": "Lichtmast1",
+                    "value": "12500",
                     "range": None
                 },
-                "doelAssetId.identificator": {
-                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#DtcIdentificator.identificator",
-                    "dotnotation": "doelAssetId.identificator",
+                "aantalTeVerlichtenRijstroken": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.aantalTeVerlichtenRijstroken",
+                    "dotnotation": "aantalTeVerlichtenRijstroken",
                     "type": "None",
-                    "value": "Montagekast1",
+                    "value": "2",
+                    "range": None
+                },
+                "kleurArmatuur": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.kleurArmatuur",
+                    "dotnotation": "kleurArmatuur",
+                    "type": "None",
+                    "value": "ral-7038",
+                    "range": None
+                },
+                "heeftAntiVandalisme": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.heeftAntiVandalisme",
+                    "dotnotation": "heeftAntiVandalisme",
+                    "type": "None",
+                    "value": "False",
+                    "range": None
+                },
+                "isFaunavriendelijk": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.isFaunavriendelijk",
+                    "dotnotation": "isFaunavriendelijk",
+                    "type": "None",
+                    "value": "False",
+                    "range": None
+                },
+                "isLijnvormig": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.isLijnvormig",
+                    "dotnotation": "isLijnvormig",
+                    "type": "None",
+                    "value": "False",
+                    "range": None
+                },
+                "lichtpuntHoogte": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.lichtpuntHoogte",
+                    "dotnotation": "lichtpuntHoogte",
+                    "type": "None",
+                    "value": "10",
+                    "range": None
+                },
+                "merk": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/abstracten#Verlichtingstoestel.merk",
+                    "dotnotation": "merk",
+                    "type": "None",
+                    "value": "Schreder",
+                    "range": None
+                },
+                "modelnaam": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/abstracten#Verlichtingstoestel.modelnaam",
+                    "dotnotation": "modelnaam",
+                    "type": "None",
+                    "value": "izylum",
+                    "range": None
+                }
+            },
+            "isHoofdAsset": False
+        },
+        "LEDdriver1": {
+            "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#LEDDriver",
+            "attributen": {
+                "typeURI": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.typeURI",
+                    "dotnotation": "typeURI",
+                    "type": "None",
+                    "value": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#LEDDriver",
                     "range": None
                 }
             },
@@ -164,54 +226,6 @@ class PostenMappingDict:
             },
             "isHoofdAsset": False
         },
-        "VerlichtingstoestelLED1": {
-            "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED",
-            "attributen": {
-                "aantalTeVerlichtenRijstroken": {
-                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.aantalTeVerlichtenRijstroken",
-                    "dotnotation": "aantalTeVerlichtenRijstroken",
-                    "type": "None",
-                    "value": "2",
-                    "range": None
-                },
-                "kleurArmatuur": {
-                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.kleurArmatuur",
-                    "dotnotation": "kleurArmatuur",
-                    "type": "None",
-                    "value": "ral-7038",
-                    "range": None
-                },
-                "heeftAntiVandalisme": {
-                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.heeftAntiVandalisme",
-                    "dotnotation": "heeftAntiVandalisme",
-                    "type": "None",
-                    "value": "False",
-                    "range": None
-                },
-                "isFaunavriendelijk": {
-                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.isFaunavriendelijk",
-                    "dotnotation": "isFaunavriendelijk",
-                    "type": "None",
-                    "value": "False",
-                    "range": None
-                },
-                "isLijnvormig": {
-                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.isLijnvormig",
-                    "dotnotation": "isLijnvormig",
-                    "type": "None",
-                    "value": "False",
-                    "range": None
-                },
-                "lichtpuntHoogte": {
-                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.lichtpuntHoogte",
-                    "dotnotation": "lichtpuntHoogte",
-                    "type": "None",
-                    "value": "10",
-                    "range": None
-                }
-            },
-            "isHoofdAsset": False
-        },
         "Armatuurcontroller1": {
             "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Armatuurcontroller",
             "attributen": {
@@ -247,26 +261,6 @@ class PostenMappingDict:
                     "dotnotation": "doelAssetId.identificator",
                     "type": "None",
                     "value": "LEDdriver1",
-                    "range": None
-                }
-            },
-            "isHoofdAsset": False
-        },
-        "VoedtAangestuurd2": {
-            "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VoedtAangestuurd",
-            "attributen": {
-                "bronAssetId.identificator": {
-                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#DtcIdentificator.identificator",
-                    "dotnotation": "bronAssetId.identificator",
-                    "type": "None",
-                    "value": "Montagekast1",
-                    "range": None
-                },
-                "doelAssetId.identificator": {
-                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#DtcIdentificator.identificator",
-                    "dotnotation": "doelAssetId.identificator",
-                    "type": "None",
-                    "value": "Armatuurcontroller1",
                     "range": None
                 }
             },
@@ -418,6 +412,27 @@ class PostenMappingDict:
                     "type": "None",
                     "value": "10",
                     "range": None
+                },
+                "merk": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/abstracten#Verlichtingstoestel.merk",
+                    "dotnotation": "merk",
+                    "type": "None",
+                    "value": "Schreder",
+                    "range": None
+                },
+                "modelnaam": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/abstracten#Verlichtingstoestel.modelnaam",
+                    "dotnotation": "modelnaam",
+                    "type": "None",
+                    "value": "izylum",
+                    "range": None
+                },
+                "lumenOutput": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.lumenOutput",
+                    "dotnotation": "lumenOutput",
+                    "type": "None",
+                    "value": "12.500",
+                    "range": None
                 }
             },
             "isHoofdAsset": False
@@ -494,6 +509,32 @@ class PostenMappingDict:
                 }
             },
             "isHoofdAsset": True
+        },
+        "LEDdriver1": {
+            "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#LEDDriver",
+            "attributen": {
+                "typeURI": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.typeURI",
+                    "dotnotation": "typeURI",
+                    "type": "None",
+                    "value": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#LEDDriver",
+                    "range": None
+                }
+            },
+            "isHoofdAsset": False
+        },
+        "Montagekast1": {
+            "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Montagekast",
+            "attributen": {
+                "typeURI": {
+                    "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.typeURI",
+                    "dotnotation": "typeURI",
+                    "type": "None",
+                    "value": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Montagekast",
+                    "range": None
+                }
+            },
+            "isHoofdAsset": False
         }
     },
     "hdpe_bl_50_30_80": {

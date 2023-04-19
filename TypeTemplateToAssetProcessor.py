@@ -436,6 +436,8 @@ class TypeTemplateToAssetProcessor:
                 asset = copy_base_asset
 
             for attr in mapping[asset_to_create]['attributen'].values():
+                if attr['dotnotation'] == 'typeURI':
+                    continue
                 if attr['value'] is not None:
                     value = attr['value']
                     if attr['type'] == 'http://www.w3.org/2001/XMLSchema#decimal':
