@@ -375,7 +375,7 @@ class TypeTemplateToAssetProcessor:
         objects_to_process = [EMInfraDecoder().decode_json_object(asset_dict) for asset_dict in asset_dicts]
 
         objects_to_upload = []
-        for object_to_process in objects_to_process:
+        for object_nr, object_to_process in enumerate(objects_to_process):
             valid_postnummers = [postnummer for postnummer in object_to_process.bestekPostNummer
                                  if postnummer in self.postenmapping_dict]
 
@@ -383,7 +383,8 @@ class TypeTemplateToAssetProcessor:
                 continue
 
             objects_to_upload.extend(self.create_assets_from_template(base_asset=object_to_process,
-                                                                      template_key=valid_postnummers[0]))
+                                                                      template_key=valid_postnummers[0],
+                                                                      asset_index=object_nr))
 
         converter = OtlmowConverter()
         file_path = Path(f'temp/{context_entry}_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}.json')
@@ -407,11 +408,12 @@ class TypeTemplateToAssetProcessor:
                                          max_interval_in_minutes: int = 1) -> bool:
         return last_processed + datetime.timedelta(minutes=max_interval_in_minutes) < current_updated
 
-    def create_assets_from_template(self, template_key: str, base_asset: OTLObject) -> List[OTLObject]:
+    def create_assets_from_template(self, template_key: str, base_asset: OTLObject, asset_index: int) -> List[OTLObject]:
         # TODO unittest
         mapping = copy.deepcopy(self.postenmapping_dict[template_key])
         copy_base_asset = dynamic_create_instance_from_uri(base_asset.typeURI)
         copy_base_asset.assetId = base_asset.assetId
+        base_asset_toestand = base_asset.toestand
         created_assets = [copy_base_asset]
 
         # change the local id of the base asset to the real id in the mapping
@@ -430,8 +432,9 @@ class TypeTemplateToAssetProcessor:
             if asset_to_create != base_local_id:
                 type_uri = mapping[asset_to_create]['typeURI']
                 asset = dynamic_create_instance_from_uri(class_uri=type_uri)
-                asset.assetId.identificator = asset_to_create
+                asset.assetId.identificator = f'asset_to_create_{asset_index}'
                 created_assets.append(asset)
+                asset.toestand = base_asset_toestand
             else:
                 asset = copy_base_asset
 
@@ -447,7 +450,7 @@ class TypeTemplateToAssetProcessor:
                         asset_attr = DotnotationHelper.get_attributes_by_dotnotation(
                             asset, dotnotation=attr['dotnotation'], waarde_shortcut_applicable=True)
                         if isinstance(asset_attr, list):
-                            asset_attr=asset_attr[0]
+                            asset_attr = asset_attr[0]
                         if asset_attr.waarde is not None:
                             continue
 
