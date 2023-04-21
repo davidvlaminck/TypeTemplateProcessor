@@ -11,8 +11,6 @@ from otlmow_converter.DotnotationHelper import DotnotationHelper
 from otlmow_converter.OtlmowConverter import OtlmowConverter
 from otlmow_davie.DavieClient import DavieClient
 from otlmow_davie.Enums import AuthenticationType, Environment
-from otlmow_model.BaseClasses.FloatOrDecimalField import FloatOrDecimalField
-from otlmow_model.BaseClasses.KeuzelijstField import KeuzelijstField
 from otlmow_model.BaseClasses.OTLObject import OTLObject
 from otlmow_model.Helpers.AssetCreator import dynamic_create_instance_from_uri
 
@@ -21,8 +19,8 @@ from EMInfraDomain import KenmerkEigenschapValueUpdateDTO, ResourceRefDTO, Eigen
     ListUpdateDTOKenmerkEigenschapValueUpdateDTO, FeedPage, EntryObject, KenmerkEigenschapValueDTO, \
     KenmerkEigenschapValueDTOList
 from EMInfraRestClient import EMInfraRestClient
-from PostenMappingDict import PostenMappingDict
 from InvalidTemplateKeyError import InvalidTemplateKeyError
+from PostenMappingDict import PostenMappingDict
 from RequestHandler import RequestHandler
 from RequesterFactory import RequesterFactory
 from SettingsManager import SettingsManager
@@ -45,7 +43,7 @@ class TypeTemplateToAssetProcessor:
         self.davie_client = DavieClient(settings_path=davie_settings_path,
                                         shelve_path=Path('davie_shelve'),
                                         auth_type=AuthenticationType.JWT,
-                                        environment=Environment.tei)
+                                        environment=environment)
 
     def _create_rest_client_based_on_settings(self, auth_type, environment, settings_path):
         settings_manager = SettingsManager(settings_path)
@@ -161,6 +159,8 @@ class TypeTemplateToAssetProcessor:
                     if context_entry in db['contexts']:
                         db['event_id'] = entry.id
                         continue  # don't start the same transaction again
+
+                    already_done = False
                     for done_context_entry in db['contexts']:
                         done_context = done_context_entry.split('_', 1)[0]
                         done_id = db['contexts'][done_context_entry]['last_event_id']
@@ -168,7 +168,9 @@ class TypeTemplateToAssetProcessor:
                             # already done this one
                             db['event_id'] = entry.id
                             continue
-
+                            already_done = True
+                    if already_done:
+                        continue
                     # yes, start a transaction_context
                     db['transaction_context'] = context_entry
                     db['contexts'][context_entry] = {'asset_uuids': [asset_uuid], 'starting_page': db['page'],
@@ -222,7 +224,10 @@ class TypeTemplateToAssetProcessor:
     def get_valid_template_key_from_feedentry(self, entry: EntryObject) -> Optional[str]:
         value_to = entry.content.value.to
         try:
-            postnummer_kenmerk = value_to['values']['21164e07-2648-4580-b7f3-f0e291fbf6df']
+            if self._environment == Environment.dev:
+                postnummer_kenmerk = value_to['values']['62fc3961-b59b-4f42-a27d-74f50e87130f']
+            else:
+                postnummer_kenmerk = value_to['values']['21164e07-2648-4580-b7f3-f0e291fbf6df']
         except (TypeError, KeyError):
             return None
 
@@ -417,24 +422,33 @@ class TypeTemplateToAssetProcessor:
         created_assets = [copy_base_asset]
 
         # change the local id of the base asset to the real id in the mapping
+        # and change relation id's accordingly
         base_local_id = next(local_id for local_id, asset_template in mapping.items() if asset_template['isHoofdAsset'])
         for local_id, asset_template in mapping.items():
             if local_id == base_local_id:
                 continue
-            if 'bronAssetId.identificator' in asset_template['attributen'] and asset_template[
-                'attributen']['bronAssetId.identificator']['value'] == base_local_id:
-                asset_template['attributen']['bronAssetId.identificator']['value'] = base_asset.assetId.identificator
-            elif 'doelAssetId.identificator' in asset_template['attributen'] and asset_template[
-                'attributen']['doelAssetId.identificator']['value'] == base_local_id:
-                asset_template['attributen']['doelAssetId.identificator']['value'] = base_asset.assetId.identificator
+            if 'bronAssetId.identificator' in asset_template['attributen']:
+                if asset_template['attributen']['bronAssetId.identificator']['value'] == base_local_id:
+                    asset_template['attributen']['bronAssetId.identificator']['value'] = base_asset.assetId.identificator
+                else:
+                    asset_template['attributen']['bronAssetId.identificator']['value'] = \
+                        f"{asset_template['attributen']['bronAssetId.identificator']['value']}_{asset_index}"
+
+            if 'doelAssetId.identificator' in asset_template['attributen']:
+                if asset_template['attributen']['doelAssetId.identificator']['value'] == base_local_id:
+                    asset_template['attributen']['doelAssetId.identificator']['value'] = base_asset.assetId.identificator
+                else:
+                    asset_template['attributen']['doelAssetId.identificator']['value'] = \
+                        f"{asset_template['attributen']['doelAssetId.identificator']['value']}_{asset_index}"
 
         for asset_to_create in mapping.keys():
             if asset_to_create != base_local_id:
                 type_uri = mapping[asset_to_create]['typeURI']
                 asset = dynamic_create_instance_from_uri(class_uri=type_uri)
-                asset.assetId.identificator = f'asset_to_create_{asset_index}'
+                asset.assetId.identificator = f'{asset_to_create}_{asset_index}'
                 created_assets.append(asset)
-                asset.toestand = base_asset_toestand
+                if hasattr(asset, 'toestand'):
+                    asset.toestand = base_asset_toestand
             else:
                 asset = copy_base_asset
 
