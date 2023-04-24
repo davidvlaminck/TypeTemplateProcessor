@@ -378,14 +378,17 @@ class TypeTemplateToAssetProcessor:
         file_path = Path(f'temp/{event_id}_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}.json')
         converter.create_file_from_assets(filepath=file_path, list_of_objects=objects_to_upload)
 
+        self.perform_davie_aanlevering(reference=f'type template processor event {event_id}', file_path=file_path)
+        os.unlink(file_path)
+
+        self._save_to_shelf({'single_upload': None})
+
+    def perform_davie_aanlevering(self, reference: str, file_path: Path):
         aanlevering = self.davie_client.create_aanlevering_employee(
-            niveau='LOG-1', referentie=f'type template processor event {event_id}',
+            niveau='LOG-1', referentie=reference,
             verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')
         self.davie_client.upload_file(id=aanlevering.id, file_path=file_path)
         self.davie_client.finalize_and_wait(id=aanlevering.id)
-
-        os.unlink(file_path)
-        self._save_to_shelf({'single_upload': None})
 
     def process_complex_template_using_transaction(self, db):
         context_entry = db['transaction_context']
@@ -409,12 +412,8 @@ class TypeTemplateToAssetProcessor:
         file_path = Path(f'temp/{context_entry}_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}.json')
         converter.create_file_from_assets(filepath=file_path, list_of_objects=objects_to_upload)
 
-        aanlevering = self.davie_client.create_aanlevering_employee(
-            niveau='LOG-1', referentie=f'type template processor event {context_entry.split("_")[0]}',
-            verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')
-        self.davie_client.upload_file(id=aanlevering.id, file_path=file_path)
-        self.davie_client.finalize_and_wait(id=aanlevering.id)
-
+        self.perform_davie_aanlevering(reference=f'type template processor event {context_entry.split("_")[0]}',
+                                       file_path=file_path)
         os.unlink(file_path)
 
         db['transaction_context'] = None
