@@ -365,7 +365,7 @@ class TypeTemplateToAssetProcessor:
         converter.create_file_from_assets(filepath=file_path, list_of_objects=objects_to_upload)
 
         aanlevering = self.davie_client.create_aanlevering_employee(
-            niveau='LOG-1', referentie='type template processor with davie test 1',
+            niveau='LOG-1', referentie=f'type template processor event {event_id}',
             verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')
         self.davie_client.upload_file(id=aanlevering.id, file_path=file_path)
         self.davie_client.finalize_and_wait(id=aanlevering.id)
@@ -396,7 +396,7 @@ class TypeTemplateToAssetProcessor:
         converter.create_file_from_assets(filepath=file_path, list_of_objects=objects_to_upload)
 
         aanlevering = self.davie_client.create_aanlevering_employee(
-            niveau='LOG-1', referentie='type template processor with davie test 1',
+            niveau='LOG-1', referentie=f'type template processor event {context_entry.split("_")[0]}',
             verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')
         self.davie_client.upload_file(id=aanlevering.id, file_path=file_path)
         self.davie_client.finalize_and_wait(id=aanlevering.id)
