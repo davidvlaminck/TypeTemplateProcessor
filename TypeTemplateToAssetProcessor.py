@@ -62,6 +62,10 @@ class TypeTemplateToAssetProcessor:
                 except ModuleNotFoundError:
                     with shelve.open(str(self.shelve_path)):
                         pass
+                except Exception as exc:
+                    if exc.args[0] == 'db type is dbm.ndbm, but the module is not available':
+                        with shelve.open(str(self.shelve_path)):
+                            pass
             try:
                 self.process_loop()
             except ConnectionError as exc:
