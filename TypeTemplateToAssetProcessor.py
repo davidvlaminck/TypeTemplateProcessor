@@ -84,7 +84,11 @@ class TypeTemplateToAssetProcessor:
                 db['contexts'] = {}
 
             while True:
-                current_page = self.rest_client.get_feedpage(page=str(db['page']))
+                try:
+                    current_page = self.rest_client.get_feedpage(page=str(db['page']))
+                except ProcessLookupError():
+                    time.sleep(60)
+                    continue
                 entries_to_process = self.get_entries_to_process(current_page, db['event_id'])
                 if len(entries_to_process) == 0 and db['transaction_context'] is None:
                     previous_link = next((link for link in current_page.links if link.rel == 'previous'), None)
@@ -211,10 +215,16 @@ class TypeTemplateToAssetProcessor:
                 db[k] = v
 
     def save_last_event(self):
-        last_page = self.rest_client.get_current_feedpage()
-        sorted_entries = sorted(last_page.entries, key=lambda x: x.id, reverse=True)
-        self_link = next(self_link for self_link in last_page.links if self_link.rel == 'self')
-        self._save_to_shelf(entries={'event_id': sorted_entries[0].id, 'page': self_link.href.split('/')[1]})
+        while True:
+            try:
+                last_page = self.rest_client.get_current_feedpage()
+            except ProcessLookupError:
+                time.sleep(60)
+                continue
+            sorted_entries = sorted(last_page.entries, key=lambda x: x.id, reverse=True)
+            self_link = next(self_link for self_link in last_page.links if self_link.rel == 'self')
+            self._save_to_shelf(entries={'event_id': sorted_entries[0].id, 'page': self_link.href.split('/')[1]})
+            break
 
     @staticmethod
     def get_entries_to_process(current_page: FeedPage, event_id: str) -> List[EntryObject]:
