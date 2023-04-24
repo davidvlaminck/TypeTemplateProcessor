@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock, call
 
 import pytest
+from otlmow_davie.Enums import Environment
 
 from EMInfraDomain import ListUpdateDTOKenmerkEigenschapValueUpdateDTO, KenmerkEigenschapValueUpdateDTO, ResourceRefDTO, \
     EigenschapTypedValueDTO, EntryObject, ContentObject, AtomValueObject, AggregateIdObject, \
@@ -34,7 +35,7 @@ def create_processor_unittest_shelve(shelve_name: str) -> (EMInfraRestClient, Ty
     TypeTemplateToAssetProcessor._create_rest_client_based_on_settings = Mock()
 
     processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, settings_path=None, auth_type=None,
-                                             environment=None, postenmapping_path=Path('Postenmapping beschermbuis.db'))
+                                             environment=Environment.tei, postenmapping_path=Path('Postenmapping beschermbuis.db'))
     processor.rest_client = rest_client
     return rest_client, processor, shelve_path
 
