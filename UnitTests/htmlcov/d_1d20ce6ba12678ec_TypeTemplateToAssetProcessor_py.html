@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="d_fbfa2de4edfd088c_FakeEigenschapDTO_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.2.1">coverage.py v7.2.1</a>,
-            created at 2023-04-24 22:37 +0000
+            created at 2023-04-25 23:06 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"/>
@@ -173,7 +173,7 @@
     <p class="run"><span class="n"><a id="t91" href="#t91">91</a></span><span class="t">                <span class="key">try</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t92" href="#t92">92</a></span><span class="t">                    <span class="nam">current_page</span> <span class="op">=</span> <span class="nam">self</span><span class="op">.</span><span class="nam">rest_client</span><span class="op">.</span><span class="nam">get_feedpage</span><span class="op">(</span><span class="nam">page</span><span class="op">=</span><span class="nam">str</span><span class="op">(</span><span class="nam">db</span><span class="op">[</span><span class="str">'page'</span><span class="op">]</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t93" href="#t93">93</a></span><span class="t">                <span class="key">except</span> <span class="nam">ProcessLookupError</span><span class="op">(</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t94" href="#t94">94</a></span><span class="t">                    <span class="nam">time</span><span class="op">.</span><span class="nam">sleep</span><span class="op">(</span><span class="num">60</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t94" href="#t94">94</a></span><span class="t">                    <span class="nam">self</span><span class="op">.</span><span class="nam">wait_seconds</span><span class="op">(</span><span class="num">60</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t95" href="#t95">95</a></span><span class="t">                    <span class="key">continue</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t96" href="#t96">96</a></span><span class="t">                <span class="nam">entries_to_process</span> <span class="op">=</span> <span class="nam">self</span><span class="op">.</span><span class="nam">get_entries_to_process</span><span class="op">(</span><span class="nam">current_page</span><span class="op">,</span> <span class="nam">db</span><span class="op">[</span><span class="str">'event_id'</span><span class="op">]</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t97" href="#t97">97</a></span><span class="t">                <span class="key">if</span> <span class="nam">len</span><span class="op">(</span><span class="nam">entries_to_process</span><span class="op">)</span> <span class="op">==</span> <span class="num">0</span> <span class="key">and</span> <span class="nam">db</span><span class="op">[</span><span class="str">'transaction_context'</span><span class="op">]</span> <span class="key">is</span> <span class="key">None</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
@@ -305,7 +305,7 @@
     <p class="run"><span class="n"><a id="t223" href="#t223">223</a></span><span class="t">            <span class="key">try</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t224" href="#t224">224</a></span><span class="t">                <span class="nam">last_page</span> <span class="op">=</span> <span class="nam">self</span><span class="op">.</span><span class="nam">rest_client</span><span class="op">.</span><span class="nam">get_current_feedpage</span><span class="op">(</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t225" href="#t225">225</a></span><span class="t">            <span class="key">except</span> <span class="nam">ProcessLookupError</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t226" href="#t226">226</a></span><span class="t">                <span class="nam">time</span><span class="op">.</span><span class="nam">sleep</span><span class="op">(</span><span class="num">60</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t226" href="#t226">226</a></span><span class="t">                <span class="nam">self</span><span class="op">.</span><span class="nam">wait_seconds</span><span class="op">(</span><span class="num">60</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t227" href="#t227">227</a></span><span class="t">                <span class="key">continue</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t228" href="#t228">228</a></span><span class="t">            <span class="nam">sorted_entries</span> <span class="op">=</span> <span class="nam">sorted</span><span class="op">(</span><span class="nam">last_page</span><span class="op">.</span><span class="nam">entries</span><span class="op">,</span> <span class="nam">key</span><span class="op">=</span><span class="key">lambda</span> <span class="nam">x</span><span class="op">:</span> <span class="nam">x</span><span class="op">.</span><span class="nam">id</span><span class="op">,</span> <span class="nam">reverse</span><span class="op">=</span><span class="key">True</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t229" href="#t229">229</a></span><span class="t">            <span class="nam">self_link</span> <span class="op">=</span> <span class="nam">next</span><span class="op">(</span><span class="nam">self_link</span> <span class="key">for</span> <span class="nam">self_link</span> <span class="key">in</span> <span class="nam">last_page</span><span class="op">.</span><span class="nam">links</span> <span class="key">if</span> <span class="nam">self_link</span><span class="op">.</span><span class="nam">rel</span> <span class="op">==</span> <span class="str">'self'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
@@ -576,7 +576,7 @@
             <a id="nextFileLink" class="nav" href="d_fbfa2de4edfd088c_FakeEigenschapDTO_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.2.1">coverage.py v7.2.1</a>,
-            created at 2023-04-24 22:37 +0000
+            created at 2023-04-25 23:06 +0000
         </p>
     </div>
 </footer>
