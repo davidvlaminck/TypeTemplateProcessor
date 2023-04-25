@@ -91,7 +91,7 @@ class TypeTemplateToAssetProcessor:
                 try:
                     current_page = self.rest_client.get_feedpage(page=str(db['page']))
                 except ProcessLookupError():
-                    time.sleep(60)
+                    self.wait_seconds(60)
                     continue
                 entries_to_process = self.get_entries_to_process(current_page, db['event_id'])
                 if len(entries_to_process) == 0 and db['transaction_context'] is None:
@@ -223,7 +223,7 @@ class TypeTemplateToAssetProcessor:
             try:
                 last_page = self.rest_client.get_current_feedpage()
             except ProcessLookupError:
-                time.sleep(60)
+                self.wait_seconds(60)
                 continue
             sorted_entries = sorted(last_page.entries, key=lambda x: x.id, reverse=True)
             self_link = next(self_link for self_link in last_page.links if self_link.rel == 'self')
