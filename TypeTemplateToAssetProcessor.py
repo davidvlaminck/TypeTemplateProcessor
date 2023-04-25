@@ -431,6 +431,7 @@ class TypeTemplateToAssetProcessor:
         mapping = copy.deepcopy(self.postenmapping_dict[template_key])
         copy_base_asset = dynamic_create_instance_from_uri(base_asset.typeURI)
         copy_base_asset.assetId = base_asset.assetId
+        copy_base_asset.bestekPostNummer.remove(template_key)
         base_asset_toestand = base_asset.toestand
         created_assets = [copy_base_asset]
 
