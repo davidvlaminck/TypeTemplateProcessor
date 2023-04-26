@@ -30,6 +30,7 @@ class TypeTemplateToAssetProcessor:
     def __init__(self, shelve_path: Path, settings_path: Path, auth_type: AuthenticationType, environment: Environment,
                  postenmapping_path: Path):
         self.shelve_path: Path = shelve_path
+        self.db: dict = {}
 
         self.postenmapping_dict: Dict = PostenMappingDict.mapping_dict
 
@@ -79,68 +80,71 @@ class TypeTemplateToAssetProcessor:
                 self.wait_seconds(60)
 
     def process_loop(self):
-        with shelve.open(str(self.shelve_path), writeback=True) as db:
-            if 'event_id' not in db:
-                self.save_last_event()
-            if 'transaction_context' not in db:
-                db['transaction_context'] = None
-            if 'contexts' not in db:
-                db['contexts'] = {}
+        if 'event_id' not in self.db:
+            self.save_last_event()
+        if 'transaction_context' not in self.db:
+            self._save_to_shelf({'transaction_context': None})
+        if 'contexts' not in self.db:
+            self._save_to_shelf({'contexts': {}})
+        if 'tracked_aanleveringen' not in self.db:
+            self._save_to_shelf({'tracked_aanleveringen': {}})
 
-            while True:
-                try:
-                    current_page = self.rest_client.get_feedpage(page=str(db['page']))
-                except ProcessLookupError():
-                    self.wait_seconds(60)
+        while True:
+            try:
+                current_page = self.rest_client.get_feedpage(page=str(self.db['page']))
+            except ProcessLookupError():
+                self.wait_seconds(60)
+                continue
+            entries_to_process = self.get_entries_to_process(current_page, self.db['event_id'])
+            if len(entries_to_process) == 0 and self.db['transaction_context'] is None:
+                previous_link = next((link for link in current_page.links if link.rel == 'previous'), None)
+                if previous_link is None:
+                    logging.info('No events to process, trying again in 10 seconds.')
+                    self.wait_seconds()
                     continue
-                entries_to_process = self.get_entries_to_process(current_page, db['event_id'])
-                if len(entries_to_process) == 0 and db['transaction_context'] is None:
-                    previous_link = next((link for link in current_page.links if link.rel == 'previous'), None)
-                    if previous_link is None:
-                        logging.info('No events to process, trying again in 10 seconds.')
-                        self.wait_seconds()
-                        continue
-                    else:
-                        logging.info(f"Done processing page {db['page']}. Going to the next.")
-                        db['page'] = previous_link.href.split('/')[1]
-                        continue
+                else:
+                    logging.info(f"Done processing page {self.db['page']}. Going to the next.")
+                    self._save_to_shelf({'page': previous_link.href.split('/')[1]})
+                    continue
 
-                self.process_all_entries(db, entries_to_process)
+            self.process_all_entries(entries_to_process)
 
-    def process_all_entries(self, db, entries_to_process: List[EntryObject]):
-        if len(entries_to_process) == 0 and db['transaction_context'] is not None:
-            self.process_complex_template_using_transaction(db=db)
+    def process_all_entries(self, entries_to_process: List[EntryObject]):
+        if len(entries_to_process) == 0 and self.db['transaction_context'] is not None:
+            self.process_complex_template_using_transaction()
 
         for entry in entries_to_process:
             start = time.time()
             if entry.content.value.type != 'ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED':
-                db['event_id'] = entry.id
+                self._save_to_shelf({'event_id': entry.id})
                 continue
 
             template_key = self.get_valid_template_key_from_feedentry(entry)
             if template_key is None:
-                db['event_id'] = entry.id
+                self._save_to_shelf({'event_id': entry.id})
                 continue
 
             asset_uuid = entry.content.value.aggregateId.uuid
             context_id = entry.content.value.contextId
 
-            if db['transaction_context'] is not None:
+            if self.db['transaction_context'] is not None:
                 # add any assets with a valid template key if they are using the same context_id
-                if context_id is not None and db['transaction_context'].startswith(context_id):
-                    db['contexts'][db['transaction_context']]['asset_uuids'].append(asset_uuid)
-                    db['contexts'][db['transaction_context']]['last_event_id'] = entry.id
-                    db['contexts'][db['transaction_context']]['last_processed_event'] = entry.updated
+                if context_id is not None and self.db['transaction_context'].startswith(context_id):
+                    contexts = self.db['contexts']
+                    contexts[self.db['transaction_context']]['asset_uuids'].append(asset_uuid)
+                    contexts[self.db['transaction_context']]['last_event_id'] = entry.id
+                    contexts[self.db['transaction_context']]['last_processed_event'] = entry.updated
+                    self._save_to_shelf({'contexts': contexts})
                 else:
                     # has it been too long since we last found assets to add?
                     if self.has_last_processed_been_too_long(
                             current_updated=entry.updated,
-                            last_processed=db['contexts'][db['transaction_context']]['last_processed_event']):
-                        self.process_complex_template_using_transaction(db=db)
+                            last_processed=self.db['contexts'][self.db['transaction_context']]['last_processed_event']):
+                        self.process_complex_template_using_transaction()
                         return
 
                 # change event_id and look for more within the same context
-                db['event_id'] = entry.id
+                self._save_to_shelf({'event_id': entry.id})
                 continue
 
             # determine if a template is single or multiple
@@ -157,33 +161,36 @@ class TypeTemplateToAssetProcessor:
                 if context_id is None:
                     self.process_complex_template_using_single_upload(
                         asset_uuid=asset_uuid, template_key=template_key, event_id=entry.id)
-                    db['event_id'] = entry.id
+                    self._save_to_shelf({'event_id': entry.id})
                     end = time.time()
                     logging.info(f'processed type_template in {round(end - start, 2)} seconds')
                     continue
                 else:
                     # check if we need to start a transaction_context
                     context_entry = context_id + '_' + entry.id
-                    if context_entry in db['contexts']:
-                        db['event_id'] = entry.id
+                    if context_entry in self.db['contexts']:
+                        self._save_to_shelf({'event_id': entry.id})
                         continue  # don't start the same transaction again
 
                     already_done = False
-                    for done_context_entry in db['contexts']:
+                    for done_context_entry in self.db['contexts']:
                         done_context = done_context_entry.split('_', 1)[0]
-                        done_id = db['contexts'][done_context_entry]['last_event_id']
+                        done_id = self.db['contexts'][done_context_entry]['last_event_id']
                         if done_context == context_id and int(done_id) >= int(entry.id):
                             # already done this one
-                            db['event_id'] = entry.id
-                            continue
+                            self._save_to_shelf({'event_id': entry.id})
                             already_done = True
+                            continue
                     if already_done:
                         continue
                     # yes, start a transaction_context
-                    db['transaction_context'] = context_entry
-                    db['contexts'][context_entry] = {'asset_uuids': [asset_uuid], 'starting_page': db['page'],
-                                                     'last_event_id': entry.id, 'last_processed_event': entry.updated}
-                    db['event_id'] = entry.id
+                    existing_contexts = self.db['contexts']
+                    existing_contexts[context_entry] = {
+                                             'asset_uuids': [asset_uuid], 'starting_page': self.db['page'],
+                                             'last_event_id': entry.id, 'last_processed_event': entry.updated}
+                    self._save_to_shelf({'transaction_context': context_entry,
+                                         'contexts': existing_contexts,
+                                         'event_id': entry.id})
                     continue
 
             # only valid for a 'single' template
@@ -192,12 +199,12 @@ class TypeTemplateToAssetProcessor:
             update_dto = self.create_update_dto(template_key=template_key, attribute_values=attribute_values)
             if update_dto is None:
                 logging.info(f'Asset {asset_uuid} does not longer need an update by a type template.')
-                db['event_id'] = entry.id
+                self._save_to_shelf({'event_id': entry.id})
                 continue
 
             self.rest_client.patch_eigenschapwaarden(ns=ns, uuid=asset_uuid, update_dto=update_dto)
 
-            db['event_id'] = entry.id
+            self._save_to_shelf({'event_id': entry.id})
             end = time.time()
             logging.info(f'processed type_template in {round(end - start, 2)} seconds')
 
@@ -213,10 +220,16 @@ class TypeTemplateToAssetProcessor:
             ns = 'installatie'
         return ns, self.rest_client.get_eigenschapwaarden(ns=ns, uuid=asset_uuid)
 
+    def _show_shelve(self) -> None:
+        for key in self.db.keys():
+            print(f'{key}: {self.db[key]}')
+
     def _save_to_shelf(self, entries: Dict) -> None:
-        with shelve.open(str(self.shelve_path)) as db:
+        with shelve.open(str(self.shelve_path), writeback=True) as db:
             for k, v in entries.items():
                 db[k] = v
+
+            self.db = dict(db)
 
     def save_last_event(self):
         while True:
@@ -358,8 +371,6 @@ class TypeTemplateToAssetProcessor:
     def process_complex_template_using_single_upload(self, event_id: str, asset_uuid: str, template_key: str) -> None:
         self._save_to_shelf({'single_upload': event_id})
 
-        # TODO check for where in the process this may have been interrupted
-
         asset_dict = next(self.rest_client.import_assets_from_webservice_by_uuids(asset_uuids=[asset_uuid]))
         object_to_process = EMInfraDecoder().decode_json_object(obj=asset_dict)
 
@@ -371,28 +382,47 @@ class TypeTemplateToAssetProcessor:
         if len(valid_postnummers) != 1:
             return
 
-        objects_to_upload.extend(self.create_assets_from_template(base_asset=object_to_process,
+        objects_to_upload.extend(self.create_assets_from_template(base_asset=object_to_process, asset_index=0,
                                                                   template_key=valid_postnummers[0]))
 
         converter = OtlmowConverter()
         file_path = Path(f'temp/{event_id}_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}.json')
         converter.create_file_from_assets(filepath=file_path, list_of_objects=objects_to_upload)
 
-        self.perform_davie_aanlevering(reference=f'type template processor event {event_id}', file_path=file_path)
+        self.perform_davie_aanlevering(reference=f'type template processor event {event_id}',
+                                       event_id=event_id, file_path=file_path)
         os.unlink(file_path)
 
-        self._save_to_shelf({'single_upload': None})
+        existing_aanleveringen = self.db['tracked_aanleveringen']
+        del existing_aanleveringen[event_id]
+        self._save_to_shelf({'tracked_aanleveringen': existing_aanleveringen,
+                             'single_upload': None})
 
-    def perform_davie_aanlevering(self, reference: str, file_path: Path):
-        aanlevering = self.davie_client.create_aanlevering_employee(
-            niveau='LOG-1', referentie=reference,
-            verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')
-        self.davie_client.upload_file(id=aanlevering.id, file_path=file_path)
-        self.davie_client.finalize_and_wait(id=aanlevering.id)
+    def perform_davie_aanlevering(self, reference: str, file_path: Path, event_id: str):
+        if event_id not in self.db['tracked_aanleveringen']:
+            aanlevering = self.davie_client.create_aanlevering_employee(
+                niveau='LOG-1', referentie=reference,
+                verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')
 
-    def process_complex_template_using_transaction(self, db):
-        context_entry = db['transaction_context']
-        asset_uuids = db['contexts'][context_entry]['asset_uuids']
+            existing_aanleveringen = self.db['tracked_aanleveringen']
+            existing_aanleveringen[event_id] = {'aanlevering_id': aanlevering.id, 'state': 'created'}
+            self._save_to_shelf({'tracked_aanleveringen': existing_aanleveringen})
+
+        aanlevering_id = self.db['tracked_aanleveringen'][event_id]['aanlevering_id']
+
+        if self.db['tracked_aanleveringen'][event_id]['state'] == 'created':
+            self.davie_client.upload_file(id=aanlevering_id, file_path=file_path)
+
+            existing_aanleveringen = self.db['tracked_aanleveringen']
+            existing_aanleveringen[event_id] = {'aanlevering_id': aanlevering_id, 'state': 'uploaded'}
+            self._save_to_shelf({'tracked_aanleveringen': existing_aanleveringen})
+
+        if self.db['tracked_aanleveringen'][event_id]['state'] == 'uploaded':
+            self.davie_client.finalize_and_wait(id=aanlevering_id)
+
+    def process_complex_template_using_transaction(self):
+        context_entry = self.db['transaction_context']
+        asset_uuids = self.db['contexts'][context_entry]['asset_uuids']
         asset_dicts = self.rest_client.import_assets_from_webservice_by_uuids(asset_uuids=asset_uuids)
         objects_to_process = [EMInfraDecoder().decode_json_object(asset_dict) for asset_dict in asset_dicts]
 
@@ -412,25 +442,29 @@ class TypeTemplateToAssetProcessor:
         file_path = Path(f'temp/{context_entry}_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}.json')
         converter.create_file_from_assets(filepath=file_path, list_of_objects=objects_to_upload)
 
-        self.perform_davie_aanlevering(reference=f'type template processor event {context_entry.split("_")[0]}',
-                                       file_path=file_path)
+        self.perform_davie_aanlevering(reference=f'type template processor event {context_entry}',
+                                       file_path=file_path, event_id=context_entry.split("_")[1])
         os.unlink(file_path)
 
-        db['transaction_context'] = None
-        starting_id = context_entry.split('_')[1]
-        db['event_id'] = starting_id
-        db['page'] = db['contexts'][context_entry]['starting_page']
+        event_id = context_entry.split('_')[1]
+        existing_aanleveringen = self.db['tracked_aanleveringen']
+        del existing_aanleveringen[event_id]
+        self._save_to_shelf({'tracked_aanleveringen': existing_aanleveringen,
+                             'transaction_context': None, 'event_id': event_id,
+                             'page': self.db['contexts'][context_entry]['starting_page']})
 
     @staticmethod
     def has_last_processed_been_too_long(current_updated: datetime, last_processed: datetime.datetime,
                                          max_interval_in_minutes: int = 1) -> bool:
         return last_processed + datetime.timedelta(minutes=max_interval_in_minutes) < current_updated
 
-    def create_assets_from_template(self, template_key: str, base_asset: OTLObject, asset_index: int) -> List[OTLObject]:
+    def create_assets_from_template(self, template_key: str, base_asset: OTLObject, asset_index: int) -> List[
+        OTLObject]:
         # TODO unittest
         mapping = copy.deepcopy(self.postenmapping_dict[template_key])
         copy_base_asset = dynamic_create_instance_from_uri(base_asset.typeURI)
         copy_base_asset.assetId = base_asset.assetId
+        copy_base_asset.bestekPostNummer = base_asset.bestekPostNummer
         copy_base_asset.bestekPostNummer.remove(template_key)
         base_asset_toestand = base_asset.toestand
         created_assets = [copy_base_asset]
@@ -443,14 +477,16 @@ class TypeTemplateToAssetProcessor:
                 continue
             if 'bronAssetId.identificator' in asset_template['attributen']:
                 if asset_template['attributen']['bronAssetId.identificator']['value'] == base_local_id:
-                    asset_template['attributen']['bronAssetId.identificator']['value'] = base_asset.assetId.identificator
+                    asset_template['attributen']['bronAssetId.identificator'][
+                        'value'] = base_asset.assetId.identificator
                 else:
                     asset_template['attributen']['bronAssetId.identificator']['value'] = \
                         f"{asset_template['attributen']['bronAssetId.identificator']['value']}_{asset_index}"
 
             if 'doelAssetId.identificator' in asset_template['attributen']:
                 if asset_template['attributen']['doelAssetId.identificator']['value'] == base_local_id:
-                    asset_template['attributen']['doelAssetId.identificator']['value'] = base_asset.assetId.identificator
+                    asset_template['attributen']['doelAssetId.identificator'][
+                        'value'] = base_asset.assetId.identificator
                 else:
                     asset_template['attributen']['doelAssetId.identificator']['value'] = \
                         f"{asset_template['attributen']['doelAssetId.identificator']['value']}_{asset_index}"
