@@ -1,11 +1,9 @@
 import functools
 import json
 import time
-from typing import Generator
 
 from EMInfraDomain import FeedPage, ListUpdateDTOKenmerkEigenschapValueUpdateDTO, KenmerkEigenschapValueDTOList, \
     EigenschapDTOList, EigenschapDTO
-from ZoekParameterPayload import ZoekParameterPayload
 
 
 class EMInfraRestClient:
@@ -73,7 +71,6 @@ class EMInfraRestClient:
         print(f'fetched eigenschapwaarden in {round(end - start, 2)} seconds')
         return eigenschap_waarden
 
-    @functools.lru_cache()
     def get_feedpage(self, page: str) -> FeedPage:
         response = self.request_handler.perform_get_request(
             url=f'core/api/feed/{page}/100')
