@@ -6,6 +6,7 @@ from unittest.mock import Mock
 
 from otlmow_davie.Enums import Environment, AuthenticationType
 from otlmow_model.Classes.Onderdeel.Bevestiging import Bevestiging
+from otlmow_model.Classes.Onderdeel.LEDDriver import LEDDriver
 from otlmow_model.Classes.Onderdeel.VerlichtingstoestelLED import VerlichtingstoestelLED
 from otlmow_model.Classes.Onderdeel.WVLichtmast import WVLichtmast
 
@@ -54,60 +55,11 @@ def test_create_assets_by_template_correct():
             "Lichtmast1": {
                 "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#WVLichtmast",
                 "attributen": {
-                    "beschermlaag": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Lichtmast.beschermlaag",
-                        "dotnotation": "beschermlaag",
-                        "type": "None",
-                        "value": "gegalvaniseerd",
-                        "range": None
-                    },
                     "dwarsdoorsnede": {
                         "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Lichtmast.dwarsdoorsnede",
                         "dotnotation": "dwarsdoorsnede",
                         "type": "None",
                         "value": "octagonaal",
-                        "range": None
-                    },
-                    "heeftStopcontact": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Lichtmast.heeftStopcontact",
-                        "dotnotation": "heeftStopcontact",
-                        "type": "None",
-                        "value": "False",
-                        "range": None
-                    },
-                    "masthoogte.standaardHoogte": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#DtuLichtmastMasthoogte.standaardHoogte",
-                        "dotnotation": "masthoogte.standaardHoogte",
-                        "type": "None",
-                        "value": "10.00",
-                        "range": None
-                    },
-                    "masttype": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Lichtmast.masttype",
-                        "dotnotation": "masttype",
-                        "type": "None",
-                        "value": "RM",
-                        "range": None
-                    },
-                    "normeringBotsvriendelijk": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Lichtmast.normeringBotsvriendelijk",
-                        "dotnotation": "normeringBotsvriendelijk",
-                        "type": "None",
-                        "value": "niet-botsvriendelijke-mast",
-                        "range": None
-                    },
-                    "aantalArmen": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#WVLichtmast.aantalArmen",
-                        "dotnotation": "aantalArmen",
-                        "type": "None",
-                        "value": "0",
-                        "range": None
-                    },
-                    "armlengte": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#WVLichtmast.armlengte",
-                        "dotnotation": "armlengte",
-                        "type": "None",
-                        "value": "niet-van-toepassing",
                         "range": None
                     }
                 },
@@ -136,72 +88,49 @@ def test_create_assets_by_template_correct():
             "VerlichtingstoestelLED1": {
                 "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED",
                 "attributen": {
-                    "lumenOutput": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.lumenOutput",
-                        "dotnotation": "lumenOutput",
-                        "type": "None",
-                        "value": "12500",
-                        "range": None
-                    },
-                    "aantalTeVerlichtenRijstroken": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.aantalTeVerlichtenRijstroken",
-                        "dotnotation": "aantalTeVerlichtenRijstroken",
-                        "type": "None",
-                        "value": "2",
-                        "range": None
-                    },
                     "kleurArmatuur": {
                         "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.kleurArmatuur",
                         "dotnotation": "kleurArmatuur",
                         "type": "None",
                         "value": "ral-7038",
                         "range": None
-                    },
-                    "heeftAntiVandalisme": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.heeftAntiVandalisme",
-                        "dotnotation": "heeftAntiVandalisme",
+                    }
+                },
+                "isHoofdAsset": False
+            },
+            "LEDdriver1": {
+                "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#LEDDriver",
+                "attributen": {
+                    "typeURI": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.typeURI",
+                        "dotnotation": "typeURI",
                         "type": "None",
-                        "value": "False",
-                        "range": None
-                    },
-                    "isFaunavriendelijk": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.isFaunavriendelijk",
-                        "dotnotation": "isFaunavriendelijk",
-                        "type": "None",
-                        "value": "False",
-                        "range": None
-                    },
-                    "isLijnvormig": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.isLijnvormig",
-                        "dotnotation": "isLijnvormig",
-                        "type": "None",
-                        "value": "False",
-                        "range": None
-                    },
-                    "lichtpuntHoogte": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED.lichtpuntHoogte",
-                        "dotnotation": "lichtpuntHoogte",
-                        "type": "None",
-                        "value": "10",
-                        "range": None
-                    },
-                    "merk": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/abstracten#Verlichtingstoestel.merk",
-                        "dotnotation": "merk",
-                        "type": "None",
-                        "value": "Schreder",
-                        "range": None
-                    },
-                    "modelnaam": {
-                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/abstracten#Verlichtingstoestel.modelnaam",
-                        "dotnotation": "modelnaam",
-                        "type": "None",
-                        "value": "izylum",
+                        "value": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#LEDDriver",
                         "range": None
                     }
                 },
                 "isHoofdAsset": False
-            }
+            },
+            "Bevestiging2": {
+                "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Bevestiging",
+                "attributen": {
+                    "bronAssetId.identificator": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#DtcIdentificator.identificator",
+                        "dotnotation": "bronAssetId.identificator",
+                        "type": "None",
+                        "value": "LEDdriver1",
+                        "range": None
+                    },
+                    "doelAssetId.identificator": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#DtcIdentificator.identificator",
+                        "dotnotation": "doelAssetId.identificator",
+                        "type": "None",
+                        "value": "Lichtmast1",
+                        "range": None
+                    }
+                },
+                "isHoofdAsset": False
+            },
         }
     }
     base_asset = WVLichtmast()
@@ -212,24 +141,34 @@ def test_create_assets_by_template_correct():
     processor.postenmapping_dict = postenmapping_dict
     result_list = processor.create_assets_from_template(template_key='WVlichtmast_config1', base_asset=base_asset, asset_index=0)
 
-    assert len(result_list) == 3
-    created_bevestiging = next(a for a in result_list if isinstance(a, Bevestiging))
+    assert len(result_list) == 5
     created_lichtmast = next(a for a in result_list if isinstance(a, WVLichtmast))
     created_led_toestel = next(a for a in result_list if isinstance(a, VerlichtingstoestelLED))
-    assert created_bevestiging is not None
-    assert created_lichtmast is not None
-    assert created_led_toestel is not None
+    created_led_driver = next(a for a in result_list if isinstance(a, LEDDriver))
+    created_bevestiging1 = next(a for a in result_list if isinstance(a, Bevestiging) and a.assetId.identificator == 'Bevestiging1_0')
+    created_bevestiging2 = next(a for a in result_list if isinstance(a, Bevestiging) and a.assetId.identificator == 'Bevestiging2_0')
 
-    assert created_bevestiging.bronAssetId.identificator == created_lichtmast.assetId.identificator
-    assert created_bevestiging.doelAssetId.identificator == created_led_toestel.assetId.identificator
+    # check created are not None
+    for asset in [created_bevestiging1, created_lichtmast, created_led_toestel, created_led_driver, created_bevestiging2]:
+        assert asset is not None
 
-    assert created_bevestiging.assetId.identificator == 'Bevestiging1_0'
+    # check identificator
+    assert created_bevestiging1.assetId.identificator == 'Bevestiging1_0'
     assert created_lichtmast.assetId.identificator == '0001'
     assert created_led_toestel.assetId.identificator == 'VerlichtingstoestelLED1_0'
+    assert created_bevestiging2.assetId.identificator == 'Bevestiging2_0'
+    assert created_led_driver.assetId.identificator == 'LEDdriver1_0'
 
+    # check relations
+    assert created_bevestiging1.bronAssetId.identificator == created_lichtmast.assetId.identificator
+    assert created_bevestiging1.doelAssetId.identificator == created_led_toestel.assetId.identificator
+
+    assert created_bevestiging2.bronAssetId.identificator == created_led_driver.assetId.identificator
+    assert created_bevestiging2.doelAssetId.identificator == created_lichtmast.assetId.identificator
+
+    # check other attributes
     assert created_lichtmast.bestekPostNummer == []
     assert created_lichtmast.dwarsdoorsnede == 'octagonaal'
-
     assert created_led_toestel.toestand == 'in-gebruik'
     assert created_led_toestel.kleurArmatuur == 'ral-7038'
 
