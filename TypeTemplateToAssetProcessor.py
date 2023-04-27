@@ -410,7 +410,7 @@ class TypeTemplateToAssetProcessor:
 
             existing_aanleveringen = self.db['tracked_aanleveringen']
             existing_aanleveringen[event_id] = {'aanlevering_id': aanlevering.id, 'state': 'created'}
-            self._save_to_shelf({'tracked_aanleveringen': existing_aanleveringen})
+            self._save_to_shelf(entries={'tracked_aanleveringen': existing_aanleveringen})
 
         aanlevering_id = self.db['tracked_aanleveringen'][event_id]['aanlevering_id']
 
@@ -419,7 +419,7 @@ class TypeTemplateToAssetProcessor:
 
             existing_aanleveringen = self.db['tracked_aanleveringen']
             existing_aanleveringen[event_id] = {'aanlevering_id': aanlevering_id, 'state': 'uploaded'}
-            self._save_to_shelf({'tracked_aanleveringen': existing_aanleveringen})
+            self._save_to_shelf(entries={'tracked_aanleveringen': existing_aanleveringen})
 
         if self.db['tracked_aanleveringen'][event_id]['state'] == 'uploaded':
             self.davie_client.finalize_and_wait(id=aanlevering_id)
@@ -462,9 +462,7 @@ class TypeTemplateToAssetProcessor:
                                          max_interval_in_minutes: int = 1) -> bool:
         return last_processed + datetime.timedelta(minutes=max_interval_in_minutes) < current_updated
 
-    def create_assets_from_template(self, template_key: str, base_asset: OTLObject, asset_index: int) -> List[
-        OTLObject]:
-        # TODO unittest
+    def create_assets_from_template(self, template_key: str, base_asset: OTLObject, asset_index: int) -> List[OTLObject]:
         mapping = copy.deepcopy(self.postenmapping_dict[template_key])
         copy_base_asset = dynamic_create_instance_from_uri(base_asset.typeURI)
         copy_base_asset.assetId = base_asset.assetId
