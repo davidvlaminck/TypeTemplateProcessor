@@ -516,7 +516,7 @@ class TypeTemplateToAssetProcessor:
 
                     if asset == copy_base_asset:
                         asset_attr = DotnotationHelper.get_attributes_by_dotnotation(
-                            asset, dotnotation=attr['dotnotation'], waarde_shortcut_applicable=True)
+                            base_asset, dotnotation=attr['dotnotation'], waarde_shortcut_applicable=True)
                         if isinstance(asset_attr, list):
                             asset_attr = asset_attr[0]
                         if asset_attr.waarde is not None:

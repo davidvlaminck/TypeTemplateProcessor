@@ -61,6 +61,13 @@ def test_create_assets_by_template_correct():
                         "type": "None",
                         "value": "octagonaal",
                         "range": None
+                    },
+                    "masthoogte.standaardHoogte": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#DtuLichtmastMasthoogte.standaardHoogte",
+                        "dotnotation": "masthoogte.standaardHoogte",
+                        "type": "None",
+                        "value": "10.00",
+                        "range": None
                     }
                 },
                 "isHoofdAsset": True
@@ -94,7 +101,14 @@ def test_create_assets_by_template_correct():
                         "type": "None",
                         "value": "ral-7038",
                         "range": None
-                    }
+                    },
+                    "theoretischeLevensduur": {
+                        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#KwantWrdInMaand.waarde",
+                        "dotnotation": "theoretischeLevensduur.waarde",
+                        "type": "None",
+                        "value": "360",
+                        "range": None
+                    },
                 },
                 "isHoofdAsset": False
             },
@@ -137,6 +151,7 @@ def test_create_assets_by_template_correct():
     base_asset.assetId.identificator = '0001'
     base_asset.toestand = 'in-gebruik'
     base_asset.bestekPostNummer = ['WVlichtmast_config1']
+    base_asset.masthoogte.standaardHoogte = '12.50'
 
     processor.postenmapping_dict = postenmapping_dict
     result_list = processor.create_assets_from_template(template_key='WVlichtmast_config1', base_asset=base_asset, asset_index=0)
@@ -145,8 +160,10 @@ def test_create_assets_by_template_correct():
     created_lichtmast = next(a for a in result_list if isinstance(a, WVLichtmast))
     created_led_toestel = next(a for a in result_list if isinstance(a, VerlichtingstoestelLED))
     created_led_driver = next(a for a in result_list if isinstance(a, LEDDriver))
-    created_bevestiging1 = next(a for a in result_list if isinstance(a, Bevestiging) and a.assetId.identificator == 'Bevestiging1_0')
-    created_bevestiging2 = next(a for a in result_list if isinstance(a, Bevestiging) and a.assetId.identificator == 'Bevestiging2_0')
+    created_bevestiging1 = next(
+        a for a in result_list if isinstance(a, Bevestiging) and a.assetId.identificator == 'Bevestiging1_0')
+    created_bevestiging2 = next(
+        a for a in result_list if isinstance(a, Bevestiging) and a.assetId.identificator == 'Bevestiging2_0')
 
     # check created are not None
     for asset in [created_bevestiging1, created_lichtmast, created_led_toestel, created_led_driver, created_bevestiging2]:
@@ -169,7 +186,10 @@ def test_create_assets_by_template_correct():
     # check other attributes
     assert created_lichtmast.bestekPostNummer == []
     assert created_lichtmast.dwarsdoorsnede == 'octagonaal'
+    assert created_lichtmast.masthoogte.standaardHoogte is None
     assert created_led_toestel.toestand == 'in-gebruik'
     assert created_led_toestel.kleurArmatuur == 'ral-7038'
+    assert created_led_toestel.theoretischeLevensduur.waarde == 360
+
 
     delete_unittest_shelve(shelve_name)
