@@ -41,9 +41,13 @@ class TypeTemplateToAssetProcessor:
         self._environment = environment
 
         davie_settings_path = Path('settings_davie.json')
+        shelve_path = Path('davie_shelve')
+        self._create_davie_client_based_on_settings(auth_type, shelve_path, environment, davie_settings_path)
+
+    def _create_davie_client_based_on_settings(self, auth_type, shelve_path, environment, davie_settings_path):
         self.davie_client = DavieClient(settings_path=davie_settings_path,
-                                        shelve_path=Path('davie_shelve'),
-                                        auth_type=AuthenticationType.JWT,
+                                        shelve_path=shelve_path,
+                                        auth_type=auth_type,
                                         environment=environment)
 
     def _create_rest_client_based_on_settings(self, auth_type, environment, settings_path):

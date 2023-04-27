@@ -33,6 +33,7 @@ def create_processor_unittest_shelve(shelve_name: str) -> (EMInfraRestClient, Ty
         pass
     rest_client = Mock(spec=EMInfraRestClient)
     TypeTemplateToAssetProcessor._create_rest_client_based_on_settings = Mock()
+    TypeTemplateToAssetProcessor._create_davie_client_based_on_settings = Mock()
 
     processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, settings_path=None, auth_type=None,
                                              environment=Environment.tei,
