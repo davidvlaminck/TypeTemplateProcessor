@@ -16,3 +16,5 @@ pytest-cov==4.0.0
 requests==2.28.2
 typing_extensions==4.5.0
 urllib3==1.26.14
+otlmow-davie>=0.2
+otlmow-converter==0.10

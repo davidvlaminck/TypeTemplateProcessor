@@ -22,6 +22,7 @@ class AggregateIdObject(BaseModel):
 class AtomValueObject(BaseModel):
     type: str
     typeVersion: str
+    contextId: Optional[str] = None
     from_: Optional[object] = None
     to: Optional[object] = None
     aggregateId: Optional[AggregateIdObject] = None

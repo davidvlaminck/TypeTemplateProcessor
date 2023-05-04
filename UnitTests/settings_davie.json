@@ -1,0 +1,24 @@
+{
+    "authentication" : {
+        "cert": {
+            "prd": {
+                "cert_path" : "/home/davidlinux/Documents/AWV/resources/datamanager.crt",
+                "key_path" : "/home/davidlinux/Documents/AWV/resources/datamanager.key"
+            }
+        },
+        "JWT": {
+            "prd": {
+                "client_id" : "00000000-0000-0000-0000-000000000000",
+                "key_path" : "/home/davidlinux/Documents/AWV/resources/datamanager_prd.json"
+            },
+            "tei": {
+                "client_id" : "00000000-0000-0000-0000-000000000000",
+                "key_path" : "/home/davidlinux/Documents/AWV/resources/datamanager_tei.json"
+            },
+            "dev": {
+                "client_id" : "00000000-0000-0000-0000-000000000000",
+                "key_path" : "/home/davidlinux/Documents/AWV/resources/datamanager_dev.json"
+            }
+        }
+    }
+}
