@@ -8,7 +8,7 @@ class PostenMappingDict:
                     "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur",
                     "dotnotation": "theoretischeLevensduur",
                     "type": "None",
-                    "value": "30",
+                    "value": "360",
                     "range": None
                 },
                 "materiaal": {
@@ -63,7 +63,7 @@ class PostenMappingDict:
                     "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur",
                     "dotnotation": "theoretischeLevensduur",
                     "type": "None",
-                    "value": "30",
+                    "value": "360",
                     "range": None
                 },
                 "materiaal": {
@@ -111,7 +111,7 @@ class PostenMappingDict:
                     "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur",
                     "dotnotation": "theoretischeLevensduur",
                     "type": "None",
-                    "value": "30",
+                    "value": "360",
                     "range": None
                 },
                 "materiaal": {
@@ -159,7 +159,7 @@ class PostenMappingDict:
                     "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur",
                     "dotnotation": "theoretischeLevensduur",
                     "type": "None",
-                    "value": "30",
+                    "value": "360",
                     "range": None
                 },
                 "materiaal": {
@@ -207,7 +207,7 @@ class PostenMappingDict:
                     "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur",
                     "dotnotation": "theoretischeLevensduur",
                     "type": "None",
-                    "value": "30",
+                    "value": "360",
                     "range": None
                 },
                 "materiaal": {
@@ -255,7 +255,7 @@ class PostenMappingDict:
                     "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur",
                     "dotnotation": "theoretischeLevensduur",
                     "type": "None",
-                    "value": "30",
+                    "value": "360",
                     "range": None
                 },
                 "materiaal": {
@@ -303,7 +303,7 @@ class PostenMappingDict:
                     "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur",
                     "dotnotation": "theoretischeLevensduur",
                     "type": "None",
-                    "value": "30",
+                    "value": "360",
                     "range": None
                 },
                 "materiaal": {
@@ -344,7 +344,7 @@ class PostenMappingDict:
                     "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/implementatieelement#AIMObject.theoretischeLevensduur",
                     "dotnotation": "theoretischeLevensduur",
                     "type": "None",
-                    "value": "30",
+                    "value": "360",
                     "range": None
                 },
                 "materiaal": {
