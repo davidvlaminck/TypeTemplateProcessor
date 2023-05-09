@@ -3,6 +3,7 @@ import datetime
 import logging
 import os
 import shelve
+import sqlite3
 import time
 from pathlib import Path
 from typing import List, Optional, Dict
@@ -27,10 +28,12 @@ from SettingsManager import SettingsManager
 
 
 class TypeTemplateToAssetProcessor:
-    def __init__(self, shelve_path: Path, settings_path: Path, auth_type: AuthenticationType, environment: Environment,
+    def __init__(self, sqlite_path: Path, settings_path: Path, auth_type: AuthenticationType, environment: Environment,
                  postenmapping_path: Path):
-        self.shelve_path: Path = shelve_path
-        self.db: dict = {}
+        self.sqlite_path: Path = sqlite_path
+        self.create_sqlite_if_not_exists(sqlite_path)
+
+        self.state_db: dict = {}
 
         self.postenmapping_dict: Dict = PostenMappingDict.mapping_dict
 
@@ -59,18 +62,6 @@ class TypeTemplateToAssetProcessor:
 
     def process(self):
         while True:
-            if not Path.is_file(self.shelve_path):
-                try:
-                    import dbm.ndbm
-                    with dbm.ndbm.open(str(self.shelve_path), 'c'):
-                        pass
-                except ModuleNotFoundError:
-                    with shelve.open(str(self.shelve_path)):
-                        pass
-                except Exception as exc:
-                    if exc.args[0] == 'db type is dbm.ndbm, but the module is not available':
-                        with shelve.open(str(self.shelve_path)):
-                            pass
             try:
                 self.process_loop()
             except ConnectionError as exc:
@@ -84,71 +75,71 @@ class TypeTemplateToAssetProcessor:
                 self.wait_seconds(60)
 
     def process_loop(self):
-        if 'event_id' not in self.db:
+        if 'event_id' not in self.state_db:
             self.save_last_event()
-        if 'transaction_context' not in self.db:
-            self._save_to_shelf({'transaction_context': None})
-        if 'contexts' not in self.db:
-            self._save_to_shelf({'contexts': {}})
-        if 'tracked_aanleveringen' not in self.db:
-            self._save_to_shelf({'tracked_aanleveringen': {}})
+        if 'transaction_context' not in self.state_db:
+            self._save_to_sqlite_state({'transaction_context': None})
+        # if 'contexts' not in self.state_db:
+        #     self._save_to_sqlite_state({'contexts': {}})
+        # if 'tracked_aanleveringen' not in self.state_db:
+        #     self._save_to_sqlite_state({'tracked_aanleveringen': {}})
 
         while True:
             try:
-                current_page = self.rest_client.get_feedpage(page=str(self.db['page']))
+                current_page = self.rest_client.get_feedpage(page=str(self.state_db['page']))
             except ProcessLookupError():
                 self.wait_seconds(60)
                 continue
-            entries_to_process = self.get_entries_to_process(current_page, self.db['event_id'])
-            if len(entries_to_process) == 0 and self.db['transaction_context'] is None:
+            entries_to_process = self.get_entries_to_process(current_page, self.state_db['event_id'])
+            if len(entries_to_process) == 0 and self.state_db['transaction_context'] is None:
                 previous_link = next((link for link in current_page.links if link.rel == 'previous'), None)
                 if previous_link is None:
                     logging.info('No events to process, trying again in 10 seconds.')
                     self.wait_seconds()
                     continue
                 else:
-                    logging.info(f"Done processing page {self.db['page']}. Going to the next.")
-                    self._save_to_shelf({'page': previous_link.href.split('/')[1]})
+                    logging.info(f"Done processing page {self.state_db['page']}. Going to the next.")
+                    self._save_to_sqlite_state({'page': previous_link.href.split('/')[1]})
                     continue
 
             self.process_all_entries(entries_to_process)
 
     def process_all_entries(self, entries_to_process: List[EntryObject]):
-        if len(entries_to_process) == 0 and self.db['transaction_context'] is not None:
+        if len(entries_to_process) == 0 and self.state_db['transaction_context'] is not None:
             self.process_complex_template_using_transaction()
 
         for entry in entries_to_process:
             start = time.time()
             if entry.content.value.type != 'ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED':
-                self._save_to_shelf({'event_id': entry.id})
+                self._save_to_sqlite_state({'event_id': entry.id})
                 continue
 
             template_key = self.get_valid_template_key_from_feedentry(entry)
             if template_key is None:
-                self._save_to_shelf({'event_id': entry.id})
+                self._save_to_sqlite_state({'event_id': entry.id})
                 continue
 
             asset_uuid = entry.content.value.aggregateId.uuid
             context_id = entry.content.value.contextId
 
-            if self.db['transaction_context'] is not None:
+            if self.state_db['transaction_context'] is not None:
                 # add any assets with a valid template key if they are using the same context_id
-                if context_id is not None and self.db['transaction_context'].startswith(context_id):
-                    contexts = self.db['contexts']
-                    contexts[self.db['transaction_context']]['asset_uuids'].append(asset_uuid)
-                    contexts[self.db['transaction_context']]['last_event_id'] = entry.id
-                    contexts[self.db['transaction_context']]['last_processed_event'] = entry.updated
-                    self._save_to_shelf({'contexts': contexts})
+                if context_id is not None and self.state_db['transaction_context'].startswith(context_id):
+                    self._save_to_sqlite_contexts(context_id=self.state_db['transaction_context'],
+                                                  last_event_id=entry.id, last_processed_event=entry.updated,)
+                    self._save_to_sqlite_contexts_assets(context_id=self.state_db['transaction_context'],
+                                                         append=asset_uuid)
                 else:
                     # has it been too long since we last found assets to add?
                     if self.has_last_processed_been_too_long(
                             current_updated=entry.updated,
-                            last_processed=self.db['contexts'][self.db['transaction_context']]['last_processed_event']):
+                            last_processed=self.state_db['contexts'][self.state_db['transaction_context']][
+                                'last_processed_event']):
                         self.process_complex_template_using_transaction()
                         return
 
                 # change event_id and look for more within the same context
-                self._save_to_shelf({'event_id': entry.id})
+                self._save_to_sqlite_state({'event_id': entry.id})
                 continue
 
             # determine if a template is single or multiple
@@ -165,36 +156,36 @@ class TypeTemplateToAssetProcessor:
                 if context_id is None:
                     self.process_complex_template_using_single_upload(
                         asset_uuid=asset_uuid, template_key=template_key, event_id=entry.id)
-                    self._save_to_shelf({'event_id': entry.id})
+                    self._save_to_sqlite_state({'event_id': entry.id})
                     end = time.time()
                     logging.info(f'processed type_template in {round(end - start, 2)} seconds')
                     continue
                 else:
                     # check if we need to start a transaction_context
                     context_entry = context_id + '_' + entry.id
-                    if context_entry in self.db['contexts']:
-                        self._save_to_shelf({'event_id': entry.id})
+                    if context_entry in self.state_db['contexts']:
+                        self._save_to_sqlite_state({'event_id': entry.id})
                         continue  # don't start the same transaction again
 
                     already_done = False
-                    for done_context_entry in self.db['contexts']:
+                    for done_context_entry in self.state_db['contexts']:
                         done_context = done_context_entry.split('_', 1)[0]
-                        done_id = self.db['contexts'][done_context_entry]['last_event_id']
+                        done_id = self.state_db['contexts'][done_context_entry]['last_event_id']
                         if done_context == context_id and int(done_id) >= int(entry.id):
                             # already done this one
-                            self._save_to_shelf({'event_id': entry.id})
+                            self._save_to_sqlite_state({'event_id': entry.id})
                             already_done = True
                             continue
                     if already_done:
                         continue
                     # yes, start a transaction_context
-                    existing_contexts = self.db['contexts']
+                    existing_contexts = self.state_db['contexts']
                     existing_contexts[context_entry] = {
-                                             'asset_uuids': [asset_uuid], 'starting_page': self.db['page'],
-                                             'last_event_id': entry.id, 'last_processed_event': entry.updated}
-                    self._save_to_shelf({'transaction_context': context_entry,
-                                         'contexts': existing_contexts,
-                                         'event_id': entry.id})
+                        'asset_uuids': [asset_uuid], 'starting_page': self.state_db['page'],
+                        'last_event_id': entry.id, 'last_processed_event': entry.updated}
+                    self._save_to_sqlite_state({'transaction_context': context_entry,
+                                                'contexts': existing_contexts,
+                                                'event_id': entry.id})
                     continue
 
             # only valid for a 'single' template
@@ -203,12 +194,12 @@ class TypeTemplateToAssetProcessor:
             update_dto = self.create_update_dto(template_key=template_key, attribute_values=attribute_values)
             if update_dto is None:
                 logging.info(f'Asset {asset_uuid} does not longer need an update by a type template.')
-                self._save_to_shelf({'event_id': entry.id})
+                self._save_to_sqlite_state({'event_id': entry.id})
                 continue
 
             self.rest_client.patch_eigenschapwaarden(ns=ns, uuid=asset_uuid, update_dto=update_dto)
 
-            self._save_to_shelf({'event_id': entry.id})
+            self._save_to_sqlite_state({'event_id': entry.id})
             end = time.time()
             logging.info(f'processed type_template in {round(end - start, 2)} seconds')
 
@@ -225,15 +216,42 @@ class TypeTemplateToAssetProcessor:
         return ns, self.rest_client.get_eigenschapwaarden(ns=ns, uuid=asset_uuid)
 
     def _show_shelve(self) -> None:
-        for key in self.db.keys():
-            print(f'{key}: {self.db[key]}')
+        for key in self.state_db.keys():
+            print(f'{key}: {self.state_db[key]}')
+
+    def _save_to_sqlite_state(self, entries: Dict) -> None:
+        if len(entries.items()) == 0:
+            return
+        conn = sqlite3.connect(self.sqlite_path)
+        c = conn.cursor()
+
+        # get all names in table state
+        c.execute('SELECT name FROM state;')
+        existing_keys = set(row[0] for row in c.fetchall())
+        entries_keys = set(entries.keys())
+
+        # insert
+        keys_to_insert = entries_keys - existing_keys
+        for key in keys_to_insert:
+            c.execute('''INSERT INTO state (name, value) VALUES (?, ?)''', (key, entries[key]))
+
+        keys_to_update = entries_keys - keys_to_insert
+        # update
+        for key in keys_to_update:
+            c.execute('''UPDATE state SET value = ? WHERE name = ?''', (entries[key], key))
+
+        c.execute('SELECT name, value FROM state;')
+        self.state_db = {row[0]: row[1] for row in c.fetchall()}
+
+        conn.commit()
+        conn.close()
 
     def _save_to_shelf(self, entries: Dict) -> None:
         with shelve.open(str(self.shelve_path), writeback=True) as db:
             for k, v in entries.items():
                 db[k] = v
 
-            self.db = dict(db)
+            self.state_db = dict(db)
 
     def save_last_event(self):
         while True:
@@ -244,7 +262,7 @@ class TypeTemplateToAssetProcessor:
                 continue
             sorted_entries = sorted(last_page.entries, key=lambda x: x.id, reverse=True)
             self_link = next(self_link for self_link in last_page.links if self_link.rel == 'self')
-            self._save_to_shelf(entries={'event_id': sorted_entries[0].id, 'page': self_link.href.split('/')[1]})
+            self._save_to_sqlite_state(entries={'event_id': sorted_entries[0].id, 'page': self_link.href.split('/')[1]})
             break
 
     @staticmethod
@@ -397,36 +415,36 @@ class TypeTemplateToAssetProcessor:
                                        event_id=event_id, file_path=file_path)
         os.unlink(file_path)
 
-        existing_aanleveringen = self.db['tracked_aanleveringen']
+        existing_aanleveringen = self.state_db['tracked_aanleveringen']
         del existing_aanleveringen[event_id]
         self._save_to_shelf({'tracked_aanleveringen': existing_aanleveringen,
                              'single_upload': None})
 
     def perform_davie_aanlevering(self, reference: str, file_path: Path, event_id: str):
-        if event_id not in self.db['tracked_aanleveringen']:
+        if event_id not in self.state_db['tracked_aanleveringen']:
             aanlevering = self.davie_client.create_aanlevering_employee(
                 niveau='LOG-1', referentie=reference,
                 verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')
 
-            existing_aanleveringen = self.db['tracked_aanleveringen']
+            existing_aanleveringen = self.state_db['tracked_aanleveringen']
             existing_aanleveringen[event_id] = {'aanlevering_id': aanlevering.id, 'state': 'created'}
             self._save_to_shelf(entries={'tracked_aanleveringen': existing_aanleveringen})
 
-        aanlevering_id = self.db['tracked_aanleveringen'][event_id]['aanlevering_id']
+        aanlevering_id = self.state_db['tracked_aanleveringen'][event_id]['aanlevering_id']
 
-        if self.db['tracked_aanleveringen'][event_id]['state'] == 'created':
+        if self.state_db['tracked_aanleveringen'][event_id]['state'] == 'created':
             self.davie_client.upload_file(id=aanlevering_id, file_path=file_path)
 
-            existing_aanleveringen = self.db['tracked_aanleveringen']
+            existing_aanleveringen = self.state_db['tracked_aanleveringen']
             existing_aanleveringen[event_id] = {'aanlevering_id': aanlevering_id, 'state': 'uploaded'}
             self._save_to_shelf(entries={'tracked_aanleveringen': existing_aanleveringen})
 
-        if self.db['tracked_aanleveringen'][event_id]['state'] == 'uploaded':
+        if self.state_db['tracked_aanleveringen'][event_id]['state'] == 'uploaded':
             self.davie_client.finalize_and_wait(id=aanlevering_id)
 
     def process_complex_template_using_transaction(self):
-        context_entry = self.db['transaction_context']
-        asset_uuids = self.db['contexts'][context_entry]['asset_uuids']
+        context_entry = self.state_db['transaction_context']
+        asset_uuids = self.state_db['contexts'][context_entry]['asset_uuids']
         asset_dicts = self.rest_client.import_assets_from_webservice_by_uuids(asset_uuids=asset_uuids)
         objects_to_process = [EMInfraDecoder().decode_json_object(asset_dict) for asset_dict in asset_dicts]
 
@@ -451,18 +469,19 @@ class TypeTemplateToAssetProcessor:
         os.unlink(file_path)
 
         event_id = context_entry.split('_')[1]
-        existing_aanleveringen = self.db['tracked_aanleveringen']
+        existing_aanleveringen = self.state_db['tracked_aanleveringen']
         del existing_aanleveringen[event_id]
         self._save_to_shelf({'tracked_aanleveringen': existing_aanleveringen,
                              'transaction_context': None, 'event_id': event_id,
-                             'page': self.db['contexts'][context_entry]['starting_page']})
+                             'page': self.state_db['contexts'][context_entry]['starting_page']})
 
     @staticmethod
     def has_last_processed_been_too_long(current_updated: datetime, last_processed: datetime.datetime,
                                          max_interval_in_minutes: int = 1) -> bool:
         return last_processed + datetime.timedelta(minutes=max_interval_in_minutes) < current_updated
 
-    def create_assets_from_template(self, template_key: str, base_asset: OTLObject, asset_index: int) -> List[OTLObject]:
+    def create_assets_from_template(self, template_key: str, base_asset: OTLObject, asset_index: int) -> List[
+        OTLObject]:
         mapping = copy.deepcopy(self.postenmapping_dict[template_key])
         copy_base_asset = dynamic_create_instance_from_uri(base_asset.typeURI)
         copy_base_asset.assetId = base_asset.assetId
@@ -524,3 +543,64 @@ class TypeTemplateToAssetProcessor:
                                                                    waarde_shortcut_applicable=True, value=value)
 
         return created_assets
+
+    @staticmethod
+    def create_sqlite_if_not_exists(sqlite_path: Path):
+        # create sqlite if not exists
+        if not sqlite_path.exists():
+            conn = sqlite3.connect(sqlite_path)
+            c = conn.cursor()
+
+            for q in ['''
+CREATE TABLE state
+(name text,
+value text);
+''', '''
+CREATE TABLE contexts
+(id text PRIMARY KEY,
+starting_page text,
+last_event_id text,
+last_processed_event text);
+''', '''
+CREATE UNIQUE INDEX contexts_id_uindex ON contexts (id);
+''', '''
+CREATE TABLE contexts_assets
+(context_id text,
+asset_uuid text,
+FOREIGN KEY (context_id) REFERENCES contexts (id));
+            ''']:
+                c.execute(q)
+            conn.commit()
+            conn.close()
+
+    def _save_to_sqlite_contexts(self, context_id: str, starting_page: str = None,
+                                 last_event_id: str = None, last_processed_event: str = None):
+        conn = sqlite3.connect(self.sqlite_path)
+        c = conn.cursor()
+        c.execute('''SELECT id FROM contexts WHERE id = ?''', (context_id,))
+        if c.fetchone() is None:
+            c.execute('''INSERT INTO contexts VALUES (?, ?, ?, ?)''', (context_id, starting_page, last_event_id,
+                                                                       last_processed_event))
+            conn.commit()
+            conn.close()
+            return
+        if starting_page is not None:
+            c.execute('''UPDATE contexts SET starting_page = ?WHERE id = ?''',
+                      (starting_page, context_id))
+        if last_event_id is not None:
+            c.execute('''UPDATE contexts SET last_event_id = ?WHERE id = ?''',
+                      (last_event_id, context_id))
+        if last_processed_event is not None:
+            c.execute('''UPDATE contexts SET last_processed_event = ?WHERE id = ?''',
+                      (last_processed_event, context_id))
+        conn.commit()
+        conn.close()
+
+    def _save_to_sqlite_contexts_assets(self, context_id: str, append: str):
+        conn = sqlite3.connect(self.sqlite_path)
+        c = conn.cursor()
+
+        c.execute('''INSERT INTO contexts_assets VALUES (?, ?)''', (context_id, append))
+
+        conn.commit()
+        conn.close()

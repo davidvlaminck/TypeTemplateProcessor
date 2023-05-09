@@ -11,7 +11,7 @@ if __name__ == '__main__':
     settings_path = Path('/home/davidlinux/Documents/AWV/resources/settings_TypeTemplateProcessor.json')
 
     this_directory = pathlib.Path(__file__).parent
-    processor = TypeTemplateToAssetProcessor(shelve_path=Path(this_directory / 'shelve'),
+    processor = TypeTemplateToAssetProcessor(sqlite_path=Path(this_directory / 'local_tei.state_db'),
                                              settings_path=settings_path,
                                              auth_type=AuthenticationType.JWT,
                                              environment=Environment.tei,

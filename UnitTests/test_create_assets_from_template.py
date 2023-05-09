@@ -20,7 +20,7 @@ THIS_FOLDER = pathlib.Path(__file__).parent
 def create_processor_unittest_shelve(shelve_name: str) -> (EMInfraRestClient, TypeTemplateToAssetProcessor, Path):
     shelve_path = Path(THIS_FOLDER / shelve_name)
     try:
-        Path.unlink(Path(THIS_FOLDER / f'{shelve_name}.db'))
+        Path.unlink(Path(THIS_FOLDER / f'{shelve_name}.state_db'))
     except FileNotFoundError:
         pass
     rest_client = Mock(spec=EMInfraRestClient)
@@ -29,7 +29,7 @@ def create_processor_unittest_shelve(shelve_name: str) -> (EMInfraRestClient, Ty
 
     processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, settings_path=None, auth_type=AuthenticationType.JWT,
                                              environment=Environment.tei,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.db'))
+                                             postenmapping_path=Path('Postenmapping beschermbuis.state_db'))
     processor.rest_client = rest_client
     return rest_client, processor, shelve_path
 
