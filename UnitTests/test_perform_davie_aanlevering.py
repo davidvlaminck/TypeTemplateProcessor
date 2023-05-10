@@ -1,20 +1,11 @@
-import datetime
-import datetime
 import pathlib
-import sqlite3
-import types
 from collections import namedtuple
 from pathlib import Path
 from unittest.mock import Mock, call
 
 import pytest
 from otlmow_davie.Enums import Environment, AuthenticationType
-from otlmow_model.Classes.Onderdeel.Bevestiging import Bevestiging
-from otlmow_model.Classes.Onderdeel.LEDDriver import LEDDriver
-from otlmow_model.Classes.Onderdeel.VerlichtingstoestelLED import VerlichtingstoestelLED
-from otlmow_model.Classes.Onderdeel.WVLichtmast import WVLichtmast
 
-from EMInfraDomain import EntryObject, ContentObject, AtomValueObject, AggregateIdObject
 from EMInfraRestClient import EMInfraRestClient
 from TypeTemplateToAssetProcessor import TypeTemplateToAssetProcessor
 

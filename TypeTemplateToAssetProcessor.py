@@ -2,7 +2,6 @@ import copy
 import datetime
 import logging
 import os
-import shelve
 import sqlite3
 import time
 from pathlib import Path
@@ -45,8 +44,9 @@ class TypeTemplateToAssetProcessor:
 
         self.dt_format = '%Y-%m-%dT%H:%M:%SZ'
 
-        davie_settings_path = Path('settings_davie.json')
-        shelve_path = Path('davie_shelve')
+        THIS_DIRECTORY = Path(__file__).parent
+        davie_settings_path = Path(THIS_DIRECTORY / 'settings_davie.json')
+        shelve_path = Path(THIS_DIRECTORY / 'davie_shelve')
         self._create_davie_client_based_on_settings(auth_type, shelve_path, environment, davie_settings_path)
 
     def _create_davie_client_based_on_settings(self, auth_type, shelve_path, environment, davie_settings_path):
@@ -374,6 +374,28 @@ class TypeTemplateToAssetProcessor:
         template = self.postenmapping_dict[template_key]
         return len(template.keys()) > 1
 
+    def perform_davie_aanlevering(self, reference: str, file_path: Path, event_id: str):
+        aanlevering = self.get_aanlevering_by_event_id(event_id=event_id)
+        if aanlevering is None:
+            aanlevering = self.davie_client.create_aanlevering_employee(
+                niveau='LOG-1', referentie=reference,
+                verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')
+
+            aanlevering_id = aanlevering.id
+            self._save_to_sqlite_aanleveringen(event_id=event_id, aanlevering_id=aanlevering_id, state='created')
+            aanlevering = self.get_aanlevering_by_event_id(event_id=event_id)
+        else:
+            aanlevering_id = aanlevering[1]
+
+        if aanlevering[2] == 'created':
+            self.davie_client.upload_file(id=aanlevering_id, file_path=file_path)
+            self._save_to_sqlite_aanleveringen(event_id=event_id, state='uploaded')
+            aanlevering = self.get_aanlevering_by_event_id(event_id=event_id)
+
+        if aanlevering[2] == 'uploaded':
+            self.davie_client.finalize_and_wait(id=aanlevering_id)
+            self._save_to_sqlite_aanleveringen(event_id=event_id, state='processed')
+
     def process_complex_template_using_single_upload(self, event_id: str, asset_uuid: str, template_key: str) -> None:
         self._save_to_shelf({'single_upload': event_id})
 
@@ -404,31 +426,9 @@ class TypeTemplateToAssetProcessor:
         self._save_to_shelf({'tracked_aanleveringen': existing_aanleveringen,
                              'single_upload': None})
 
-    def perform_davie_aanlevering(self, reference: str, file_path: Path, event_id: str):
-        aanlevering = self.get_aanlevering_by_event_id(event_id=event_id)
-        if aanlevering is None:
-            aanlevering = self.davie_client.create_aanlevering_employee(
-                niveau='LOG-1', referentie=reference,
-                verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')
-
-            aanlevering_id = aanlevering.id
-            self._save_to_sqlite_aanleveringen(event_id=event_id, aanlevering_id=aanlevering_id, state='created')
-            aanlevering = self.get_aanlevering_by_event_id(event_id=event_id)
-        else:
-            aanlevering_id = aanlevering[1]
-
-        if aanlevering[2] == 'created':
-            self.davie_client.upload_file(id=aanlevering_id, file_path=file_path)
-            self._save_to_sqlite_aanleveringen(event_id=event_id, state='uploaded')
-            aanlevering = self.get_aanlevering_by_event_id(event_id=event_id)
-
-        if aanlevering[2] == 'uploaded':
-            self.davie_client.finalize_and_wait(id=aanlevering_id)
-            self._save_to_sqlite_aanleveringen(event_id=event_id, state='processed')
-
     def process_complex_template_using_transaction(self):
         context_entry = self.state_db['transaction_context']
-        asset_uuids = self.state_db['contexts'][context_entry]['asset_uuids']
+        asset_uuids = self._get_asset_uuids_by_context_id(context_entry)
         asset_dicts = self.rest_client.import_assets_from_webservice_by_uuids(asset_uuids=asset_uuids)
         objects_to_process = [EMInfraDecoder().decode_json_object(asset_dict) for asset_dict in asset_dicts]
 
@@ -445,6 +445,9 @@ class TypeTemplateToAssetProcessor:
                                                                       asset_index=object_nr))
 
         converter = OtlmowConverter()
+
+        if not os.path.exists('temp'):
+            os.makedirs('temp')
         file_path = Path(f'temp/{context_entry}_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}.json')
         converter.create_file_from_assets(filepath=file_path, list_of_objects=objects_to_upload)
 
@@ -454,7 +457,7 @@ class TypeTemplateToAssetProcessor:
         os.unlink(file_path)
 
         context = self.get_context_by_context_id(context_id=context_entry)
-        self._save_to_sqlite_state({event_id: event_id, 'transaction_context': None, 'page': context[1]})
+        self._save_to_sqlite_state({'event_id': event_id, 'transaction_context': None, 'page': context[1]})
 
     def has_last_processed_been_too_long(self, current_updated: datetime,
                                          max_interval_in_minutes: int = 1) -> bool:
@@ -614,6 +617,16 @@ state text);
 
         conn.commit()
         conn.close()
+
+    def _get_asset_uuids_by_context_id(self, context_id: str):
+        conn = sqlite3.connect(self.sqlite_path)
+        c = conn.cursor()
+
+        c.execute('''SELECT asset_uuid FROM contexts_assets WHERE context_id = ?''', (context_id,))
+        results = [row[0] for row in c.fetchall()]
+        conn.commit()
+        conn.close()
+        return results
 
     def get_last_processed_by_context_id(self, context_id) -> datetime.datetime:
         date_str = self.get_context_by_context_id(context_id)[3]
