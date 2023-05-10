@@ -20,31 +20,21 @@ from TypeTemplateToAssetProcessor import TypeTemplateToAssetProcessor
 THIS_FOLDER = pathlib.Path(__file__).parent
 
 
-def create_processor_unittest_shelve(shelve_name: str) -> (EMInfraRestClient, TypeTemplateToAssetProcessor, Path):
-    shelve_path = Path(THIS_FOLDER / shelve_name)
+def create_processor_unittest_sqlite(sqlite_name: str) -> (EMInfraRestClient, TypeTemplateToAssetProcessor):
+    sqlite_path = Path(THIS_FOLDER / sqlite_name)
     try:
-        Path.unlink(Path(THIS_FOLDER / f'{shelve_name}.state_db'))
+        Path.unlink(Path(THIS_FOLDER / f'{sqlite_name}'))
     except FileNotFoundError:
         pass
     rest_client = Mock(spec=EMInfraRestClient)
     TypeTemplateToAssetProcessor._create_rest_client_based_on_settings = Mock()
     TypeTemplateToAssetProcessor._create_davie_client_based_on_settings = Mock()
 
-    processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, settings_path=None, auth_type=AuthenticationType.JWT,
-                                             environment=Environment.tei,
+    processor = TypeTemplateToAssetProcessor(sqlite_path=sqlite_path, settings_path=Path(),
+                                             auth_type=AuthenticationType.JWT, environment=Environment.tei,
                                              postenmapping_path=Path('Postenmapping beschermbuis.state_db'))
     processor.rest_client = rest_client
-    return rest_client, processor, shelve_path
-
-
-def delete_unittest_shelve(shelve_name: str) -> None:
-    import os
-    prefixed = [filename for filename in os.listdir('.') if filename.startswith(shelve_name)]
-    for filename in prefixed:
-        try:
-            Path.unlink(Path(THIS_FOLDER / filename))
-        except FileNotFoundError:
-            pass
+    return rest_client, processor
 
 
 def test_perform_davie_aanlevering_not_tracked():
@@ -54,8 +44,7 @@ def test_perform_davie_aanlevering_not_tracked():
         raise StopIteration
     TypeTemplateToAssetProcessor._save_to_shelf = alt_save_to_shelf
 
-    shelve_name = 'db_unittests_18'
-    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    _, processor = create_processor_unittest_sqlite('used_sqlite.db')
     processor.davie_client = Mock()
     Aanlevering = namedtuple('Aanlevering', ['id'])
     processor.davie_client.create_aanlevering_employee = Mock(return_value=Aanlevering(id='0001'))
@@ -73,4 +62,3 @@ def test_perform_davie_aanlevering_not_tracked():
             '1': {'aanlevering_id': '0001', 'state': 'created'},
             '2': {'aanlevering_id': '0002', 'state': 'created'}}}
 
-    delete_unittest_shelve(shelve_name)
