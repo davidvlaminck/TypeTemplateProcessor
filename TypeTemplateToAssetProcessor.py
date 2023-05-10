@@ -43,6 +43,8 @@ class TypeTemplateToAssetProcessor:
         self._auth_type = auth_type
         self._environment = environment
 
+        self.dt_format = '%Y-%m-%dT%H:%M:%SZ'
+
         davie_settings_path = Path('settings_davie.json')
         shelve_path = Path('davie_shelve')
         self._create_davie_client_based_on_settings(auth_type, shelve_path, environment, davie_settings_path)
@@ -131,10 +133,7 @@ class TypeTemplateToAssetProcessor:
                                                          append=asset_uuid)
                 else:
                     # has it been too long since we last found assets to add?
-                    if self.has_last_processed_been_too_long(
-                            current_updated=entry.updated,
-                            last_processed=self.state_db['contexts'][self.state_db['transaction_context']][
-                                'last_processed_event']):
+                    if self.has_last_processed_been_too_long(current_updated=entry.updated):
                         self.process_complex_template_using_transaction()
                         return
 
@@ -163,28 +162,24 @@ class TypeTemplateToAssetProcessor:
                 else:
                     # check if we need to start a transaction_context
                     context_entry = context_id + '_' + entry.id
-                    if context_entry in self.state_db['contexts']:
+                    context_info = self.get_context_by_context_id(context_entry)
+                    if context_info is not None:
                         self._save_to_sqlite_state({'event_id': entry.id})
                         continue  # don't start the same transaction again
 
-                    already_done = False
-                    for done_context_entry in self.state_db['contexts']:
-                        done_context = done_context_entry.split('_', 1)[0]
-                        done_id = self.state_db['contexts'][done_context_entry]['last_event_id']
-                        if done_context == context_id and int(done_id) >= int(entry.id):
-                            # already done this one
-                            self._save_to_sqlite_state({'event_id': entry.id})
-                            already_done = True
-                            continue
-                    if already_done:
+                    # check if we have already done this one
+                    if self.check_if_already_done(context_uuid=context_id, entry_id=int(entry.id)):
+                        self._save_to_sqlite_state({'event_id': entry.id})
                         continue
+
                     # yes, start a transaction_context
-                    existing_contexts = self.state_db['contexts']
-                    existing_contexts[context_entry] = {
-                        'asset_uuids': [asset_uuid], 'starting_page': self.state_db['page'],
-                        'last_event_id': entry.id, 'last_processed_event': entry.updated}
+
+                    self._save_to_sqlite_contexts(
+                        context_id=context_entry, last_event_id=entry.id, starting_page=self.state_db['page'],
+                        last_processed_event=datetime.datetime.strftime(entry.updated, self.dt_format))
+                    self._save_to_sqlite_contexts_assets(context_id=context_entry, append=asset_uuid)
+
                     self._save_to_sqlite_state({'transaction_context': context_entry,
-                                                'contexts': existing_contexts,
                                                 'event_id': entry.id})
                     continue
 
@@ -475,9 +470,10 @@ class TypeTemplateToAssetProcessor:
                              'transaction_context': None, 'event_id': event_id,
                              'page': self.state_db['contexts'][context_entry]['starting_page']})
 
-    @staticmethod
-    def has_last_processed_been_too_long(current_updated: datetime, last_processed: datetime.datetime,
+
+    def has_last_processed_been_too_long(self, current_updated: datetime,
                                          max_interval_in_minutes: int = 1) -> bool:
+        last_processed = self.get_last_processed_by_context_id(context_id=self.state_db['transaction_context'])
         return last_processed + datetime.timedelta(minutes=max_interval_in_minutes) < current_updated
 
     def create_assets_from_template(self, template_key: str, base_asset: OTLObject, asset_index: int) -> List[
@@ -585,13 +581,13 @@ FOREIGN KEY (context_id) REFERENCES contexts (id));
             conn.close()
             return
         if starting_page is not None:
-            c.execute('''UPDATE contexts SET starting_page = ?WHERE id = ?''',
+            c.execute('''UPDATE contexts SET starting_page = ? WHERE id = ?''',
                       (starting_page, context_id))
         if last_event_id is not None:
-            c.execute('''UPDATE contexts SET last_event_id = ?WHERE id = ?''',
+            c.execute('''UPDATE contexts SET last_event_id = ? WHERE id = ?''',
                       (last_event_id, context_id))
         if last_processed_event is not None:
-            c.execute('''UPDATE contexts SET last_processed_event = ?WHERE id = ?''',
+            c.execute('''UPDATE contexts SET last_processed_event = ? WHERE id = ?''',
                       (last_processed_event, context_id))
         conn.commit()
         conn.close()
@@ -604,3 +600,31 @@ FOREIGN KEY (context_id) REFERENCES contexts (id));
 
         conn.commit()
         conn.close()
+
+    def get_last_processed_by_context_id(self, context_id) -> datetime.datetime:
+        date_str = self.get_context_by_context_id(context_id)[3]
+        return datetime.datetime.strptime(date_str, self.dt_format)
+
+    def get_context_by_context_id(self, context_id) -> tuple:
+        conn = sqlite3.connect(self.sqlite_path)
+        c = conn.cursor()
+
+        c.execute('''SELECT id, starting_page, last_event_id, last_processed_event FROM contexts WHERE id = ?''', (context_id,))
+        row = c.fetchone()
+
+        conn.commit()
+        conn.close()
+        return row
+
+    def check_if_already_done(self, context_uuid, entry_id: int) -> bool:
+        conn = sqlite3.connect(self.sqlite_path)
+        c = conn.cursor()
+        c.execute("""SELECT id, last_event_id FROM contexts WHERE id like ? || '%'""", (context_uuid,))
+        rows = c.fetchall()
+        conn.commit()
+        conn.close()
+
+        for row in rows:
+            if int(row[1]) >= entry_id:
+                return True
+        return False

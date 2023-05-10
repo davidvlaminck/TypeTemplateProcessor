@@ -1,13 +1,12 @@
 import copy
 import datetime
 import pathlib
-import shelve
 import sqlite3
 from pathlib import Path
 from unittest.mock import Mock, call
 
 import pytest
-from otlmow_davie.Enums import Environment
+from otlmow_davie.Enums import Environment, AuthenticationType
 
 from EMInfraDomain import ListUpdateDTOKenmerkEigenschapValueUpdateDTO, KenmerkEigenschapValueUpdateDTO, ResourceRefDTO, \
     EigenschapTypedValueDTO, EntryObject, ContentObject, AtomValueObject, AggregateIdObject, \
@@ -26,23 +25,6 @@ from UnitTests.TestObjects.FakeKenmerkEigenschapValueDTOList import fake_attribu
 THIS_FOLDER = pathlib.Path(__file__).parent
 
 
-def create_processor_unittest_shelve(shelve_name: str) -> (EMInfraRestClient, TypeTemplateToAssetProcessor, Path):
-    shelve_path = Path(THIS_FOLDER / shelve_name)
-    try:
-        Path.unlink(Path(THIS_FOLDER / f'{shelve_name}.state_db'))
-    except FileNotFoundError:
-        pass
-    rest_client = Mock(spec=EMInfraRestClient)
-    TypeTemplateToAssetProcessor._create_rest_client_based_on_settings = Mock()
-    TypeTemplateToAssetProcessor._create_davie_client_based_on_settings = Mock()
-
-    processor = TypeTemplateToAssetProcessor(shelve_path=shelve_path, settings_path=None, auth_type=None,
-                                             environment=Environment.tei,
-                                             postenmapping_path=Path('Postenmapping beschermbuis.state_db'))
-    processor.rest_client = rest_client
-    return rest_client, processor, shelve_path
-
-
 def create_processor_unittest_sqlite(sqlite_name: str) -> (EMInfraRestClient, TypeTemplateToAssetProcessor):
     sqlite_path = Path(THIS_FOLDER / sqlite_name)
     try:
@@ -53,21 +35,11 @@ def create_processor_unittest_sqlite(sqlite_name: str) -> (EMInfraRestClient, Ty
     TypeTemplateToAssetProcessor._create_rest_client_based_on_settings = Mock()
     TypeTemplateToAssetProcessor._create_davie_client_based_on_settings = Mock()
 
-    processor = TypeTemplateToAssetProcessor(sqlite_path=sqlite_path, settings_path=None, auth_type=None,
-                                             environment=Environment.tei,
+    processor = TypeTemplateToAssetProcessor(sqlite_path=sqlite_path, settings_path=Path(),
+                                             auth_type=AuthenticationType.JWT, environment=Environment.tei,
                                              postenmapping_path=Path('Postenmapping beschermbuis.state_db'))
     processor.rest_client = rest_client
     return rest_client, processor
-
-
-def delete_unittest_shelve(shelve_name: str) -> None:
-    import os
-    prefixed = [filename for filename in os.listdir('.') if filename.startswith(shelve_name)]
-    for filename in prefixed:
-        try:
-            Path.unlink(Path(THIS_FOLDER / filename))
-        except FileNotFoundError:
-            pass
 
 
 def test_init_TypeTemplateToAssetProcessor():
@@ -434,7 +406,6 @@ def test_process_all_entries_type_to_ignore():
 
 def test_process_all_entries_invalid_template_key():
     _, processor = create_processor_unittest_sqlite('used_sqlite.db')
-    local_db = {}
     processor.get_valid_template_key_from_feedentry = Mock()
     processor.get_valid_template_key_from_feedentry.side_effect = lambda _: None
 
@@ -480,11 +451,11 @@ def test_process_all_entries_transaction_context_add_entry():
     processor.get_valid_template_key_from_feedentry = Mock()
     processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
 
-    processor._save_to_sqlite_state({'transaction_context': 'context_01/1'})
-    processor._save_to_sqlite_contexts(context_id='context_01/1',
+    processor._save_to_sqlite_state({'transaction_context': 'context_01_1'})
+    processor._save_to_sqlite_contexts(context_id='context_01_1',
                                        starting_page='1',
                                        last_event_id='1')
-    processor._save_to_sqlite_contexts_assets(context_id='context_01/1', append='asset-uuid-0001')
+    processor._save_to_sqlite_contexts_assets(context_id='context_01_1', append='asset-uuid-0001')
 
     # function to test
     processor.process_all_entries(entries_to_process=[
@@ -493,181 +464,216 @@ def test_process_all_entries_transaction_context_add_entry():
             aggregateId=AggregateIdObject(uuid='asset-uuid-0002'))))])
 
     # assertions
-    assert processor.state_db == {'event_id': 'id', 'transaction_context': 'context_01/1'}
+    assert processor.state_db == {'event_id': 'id', 'transaction_context': 'context_01_1'}
     conn = sqlite3.connect(THIS_FOLDER / 'used_sqlite.db')
     c = conn.cursor()
     c.execute('''SELECT id, starting_page, last_event_id FROM contexts''')
     contexts_row = c.fetchone()
     c.execute('''SELECT context_id, asset_uuid FROM contexts_assets''')
-    contexts_rows = [row for row in c.fetchall()]
+    contexts_assets_rows = [row for row in c.fetchall()]
     conn.commit()
     conn.close()
-    assert contexts_row == ('context_01/1', '1', 'id')
-    assert contexts_rows == [('context_01/1', 'asset-uuid-0001'), ('context_01/1', 'asset-uuid-0002')]
+    assert contexts_row == ('context_01_1', '1', 'id')
+    assert contexts_assets_rows == [('context_01_1', 'asset-uuid-0001'), ('context_01_1', 'asset-uuid-0002')]
 
 
 def test_process_all_entries_transaction_context_process_entry_without_context_last_processed_ok():
-    shelve_name = 'db_unittests_11'
-    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    # setup
+    _, processor = create_processor_unittest_sqlite('used_sqlite.db')
     processor.process_complex_template_using_transaction = Mock()
     processor.process_complex_template_using_transaction.side_effect = lambda: None
     processor.get_valid_template_key_from_feedentry = Mock()
     processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
 
-    processor._save_to_shelf({'transaction_context': 'context_01/1',
-                              'contexts': {
-                                  'context_01/1': {
-                                      'asset_uuids': ['asset-uuid-0001'], 'starting_page': '1', 'last_event_id': '1',
-                                      'last_processed_event': datetime.datetime.utcnow()}}})
+    processor._save_to_sqlite_state({'transaction_context': 'context_01_1'})
+    processor._save_to_sqlite_contexts(
+        context_id='context_01_1', starting_page='1', last_event_id='1',
+        last_processed_event=datetime.datetime.strftime(datetime.datetime.utcnow(), processor.dt_format))
+    processor._save_to_sqlite_contexts_assets(context_id='context_01_1', append='asset-uuid-0001')
 
+    # function to test
     processor.process_all_entries(entries_to_process=[
         EntryObject(id='id', updated=datetime.datetime.utcnow(), content=ContentObject(value=AtomValueObject(
             _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1,
             aggregateId=AggregateIdObject(uuid='asset-uuid-0002'))))])
 
-    assert processor.state_db['contexts']['context_01/1']['asset_uuids'] == ['asset-uuid-0001']
-    assert processor.state_db['event_id'] == 'id'
-    delete_unittest_shelve(shelve_name)
+    # assertions
+    assert processor.state_db == {'event_id': 'id', 'transaction_context': 'context_01_1'}
+    conn = sqlite3.connect(THIS_FOLDER / 'used_sqlite.db')
+    c = conn.cursor()
+    c.execute('''SELECT id, starting_page, last_event_id FROM contexts''')
+    contexts_row = c.fetchone()
+    c.execute('''SELECT context_id, asset_uuid FROM contexts_assets''')
+    contexts_assets_rows = [row for row in c.fetchall()]
+    conn.commit()
+    conn.close()
+    assert contexts_row == ('context_01_1', '1', '1')
+    assert contexts_assets_rows == [('context_01_1', 'asset-uuid-0001')]
 
 
 def test_process_all_entries_transaction_context_process_entry_without_context_last_processed_too_long_ago():
-    shelve_name = 'db_unittests_12'
-    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    # setup
+    _, processor = create_processor_unittest_sqlite('used_sqlite.db')
     processor.process_complex_template_using_transaction = Mock()
     processor.get_valid_template_key_from_feedentry = Mock()
     processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
 
-    processor.state_db = {'transaction_context': 'context_01/1',
-                          'contexts': {
-                              'context_01/1': {
-                                  'asset_uuids': ['asset-uuid-0001'], 'starting_page': '1', 'last_event_id': '1',
-                                  'last_processed_event': datetime.datetime(2023, 2, 1, 1, 2, 3)}}}
+    processor._save_to_sqlite_state({'transaction_context': 'context_01_1'})
+    processor._save_to_sqlite_contexts(
+        context_id='context_01_1', starting_page='1', last_event_id='1',
+        last_processed_event=datetime.datetime.strftime(datetime.datetime(2023, 2, 1, 1, 2, 3), processor.dt_format))
+    processor._save_to_sqlite_contexts_assets(context_id='context_01_1', append='asset-uuid-0001')
 
+    # function to test
     processor.process_all_entries(entries_to_process=[
         EntryObject(id='id', updated=datetime.datetime(2023, 2, 1, 1, 3, 4),
                     content=ContentObject(value=AtomValueObject(
                         _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1,
                         aggregateId=AggregateIdObject(uuid='asset-uuid-0002'))))])
 
-    assert processor.state_db['contexts']['context_01/1']['asset_uuids'] == ['asset-uuid-0001']
-    assert 'event_id' not in processor.state_db
+    # assertions
+    assert processor.state_db == {'transaction_context': 'context_01_1'}
+    conn = sqlite3.connect(THIS_FOLDER / 'used_sqlite.db')
+    c = conn.cursor()
+    c.execute('''SELECT id, starting_page, last_event_id FROM contexts''')
+    contexts_row = c.fetchone()
+    c.execute('''SELECT context_id, asset_uuid FROM contexts_assets''')
+    contexts_assets_rows = [row for row in c.fetchall()]
+    conn.commit()
+    conn.close()
+    assert contexts_row == ('context_01_1', '1', '1')
+    assert contexts_assets_rows == [('context_01_1', 'asset-uuid-0001')]
     assert processor.process_complex_template_using_transaction.called
-    delete_unittest_shelve(shelve_name)
 
 
 def test_process_all_entries_no_transaction_context_complex_template_no_context():
-    shelve_name = 'db_unittests_13'
-    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    # setup
+    _, processor = create_processor_unittest_sqlite('used_sqlite.db')
     processor.process_complex_template_using_single_upload = Mock()
     processor.process_complex_template_using_single_upload.side_effect = lambda asset_uuid, template_key, event_id: None
     processor.get_valid_template_key_from_feedentry = Mock()
     processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
     processor.determine_if_template_is_complex = Mock()
     processor.determine_if_template_is_complex.side_effect = lambda template_key: True
+    processor._save_to_sqlite_state({'transaction_context': None})
 
-    processor.state_db = {'transaction_context': None}
-
+    # function to test
     processor.process_all_entries(entries_to_process=[
         EntryObject(id='id', content=ContentObject(value=AtomValueObject(
             _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1,
             aggregateId=AggregateIdObject(uuid='asset-uuid-0002'))))])
 
+    # assertions
+    assert processor.state_db == {'event_id': 'id', 'transaction_context': None}
     assert processor.process_complex_template_using_single_upload.called
-    assert processor.state_db['event_id'] == 'id'
-    delete_unittest_shelve(shelve_name)
 
 
 def test_process_all_entries_no_transaction_context_complex_template_new_context():
-    shelve_name = 'db_unittests_14'
-    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    # setup
+    _, processor = create_processor_unittest_sqlite('used_sqlite.db')
     processor.get_valid_template_key_from_feedentry = Mock()
     processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
     processor.determine_if_template_is_complex = Mock()
     processor.determine_if_template_is_complex.side_effect = lambda template_key: True
 
-    processor.state_db = {'transaction_context': None, 'page': '2', 'contexts': {}}
+    processor._save_to_sqlite_state({'transaction_context': None, 'page': '2'})
+    dt_string = datetime.datetime.strftime(datetime.datetime(2023, 2, 1, 1, 2, 3), processor.dt_format)
 
+    # function to test
     processor.process_all_entries(entries_to_process=[
-        EntryObject(id='1', updated=datetime.datetime(2023, 2, 1, 1, 2, 3), content=ContentObject(value=AtomValueObject(
+        EntryObject(id='1', updated=dt_string, content=ContentObject(value=AtomValueObject(
             _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1, contextId='context_01',
             aggregateId=AggregateIdObject(uuid='asset-uuid-0001'))))])
 
-    assert processor.state_db['event_id'] == '1'
-    assert processor.state_db['transaction_context'] == 'context_01_1'
-    assert 'context_01_1' in processor.state_db['contexts']
-    assert processor.state_db['contexts']['context_01_1']['asset_uuids'] == ['asset-uuid-0001']
-    assert processor.state_db['contexts']['context_01_1']['starting_page'] == '2'
-    assert processor.state_db['contexts']['context_01_1']['last_event_id'] == '1'
-    assert processor.state_db['contexts']['context_01_1']['last_processed_event'] == datetime.datetime(2023, 2, 1, 1, 2,
-                                                                                                       3)
-    delete_unittest_shelve(shelve_name)
+    # assertions
+    assert processor.state_db == {'event_id': '1', 'page': '2', 'transaction_context': 'context_01_1'}
+    conn = sqlite3.connect(THIS_FOLDER / 'used_sqlite.db')
+    c = conn.cursor()
+    c.execute('''SELECT id, starting_page, last_event_id, last_processed_event FROM contexts''')
+    contexts_row = c.fetchone()
+    c.execute('''SELECT context_id, asset_uuid FROM contexts_assets''')
+    contexts_assets_rows = [row for row in c.fetchall()]
+    conn.commit()
+    conn.close()
+    assert contexts_row == ('context_01_1', '2', '1', dt_string)
+    assert contexts_assets_rows == [('context_01_1', 'asset-uuid-0001')]
 
 
 def test_process_all_entries_no_transaction_context_complex_template_existing_context_identical_id():
-    shelve_name = 'db_unittests_15'
-    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    # setup
+    _, processor = create_processor_unittest_sqlite('used_sqlite.db')
     processor.get_valid_template_key_from_feedentry = Mock()
     processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
     processor.determine_if_template_is_complex = Mock()
     processor.determine_if_template_is_complex.side_effect = lambda template_key: True
 
-    processor.state_db = {'transaction_context': None, 'page': '2', 'contexts': {
-        'context_01/1': {
-            'asset_uuids': ['asset-uuid-0001'], 'starting_page': '2', 'last_event_id': '1'}}}
+    processor._save_to_sqlite_state({'transaction_context': None, 'page': '2'})
+    processor._save_to_sqlite_contexts(context_id='context_01_1', starting_page='2', last_event_id='1')
+    processor._save_to_sqlite_contexts_assets(context_id='context_01_1', append='asset-uuid-0001')
 
+    # function to test
     processor.process_all_entries(entries_to_process=[
         EntryObject(id='1', content=ContentObject(value=AtomValueObject(
             _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1, contextId='context_01',
             aggregateId=AggregateIdObject(uuid='asset-uuid-0001'))))])
 
+    # assertions
     assert processor.state_db['event_id'] == '1'
-    delete_unittest_shelve(shelve_name)
 
 
 def test_process_all_entries_no_transaction_context_complex_template_existing_context_already_processed():
-    shelve_name = 'db_unittests_16'
-    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    # setup
+    _, processor = create_processor_unittest_sqlite('used_sqlite.db')
     processor.get_valid_template_key_from_feedentry = Mock()
     processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
     processor.determine_if_template_is_complex = Mock()
     processor.determine_if_template_is_complex.side_effect = lambda template_key: True
 
-    processor.state_db = {'transaction_context': None, 'page': '2', 'contexts': {
-        'context_01/1': {
-            'asset_uuids': ['asset-uuid-0001', 'asset-uuid-0002'], 'starting_page': '2', 'last_event_id': '2'}}}
+    processor._save_to_sqlite_state({'transaction_context': None, 'page': '2'})
+    processor._save_to_sqlite_contexts(context_id='context_01_1', starting_page='2', last_event_id='2')
+    processor._save_to_sqlite_contexts_assets(context_id='context_01_1', append='asset-uuid-0001')
+    processor._save_to_sqlite_contexts_assets(context_id='context_01_1', append='asset-uuid-0002')
 
+    # function to test
     processor.process_all_entries(entries_to_process=[
         EntryObject(id='2', content=ContentObject(value=AtomValueObject(
             _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1, contextId='context_01',
             aggregateId=AggregateIdObject(uuid='asset-uuid-0002'))))])
 
+    # assertions
     assert processor.state_db['event_id'] == '2'
-    delete_unittest_shelve(shelve_name)
 
 
 def test_process_all_entries_no_transaction_context_complex_template_existing_context_start_new_context():
-    shelve_name = 'db_unittests_16'
-    _, processor, _ = create_processor_unittest_shelve(shelve_name=shelve_name)
+    # setup
+    _, processor = create_processor_unittest_sqlite('used_sqlite.db')
     processor.get_valid_template_key_from_feedentry = Mock()
     processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
     processor.determine_if_template_is_complex = Mock()
     processor.determine_if_template_is_complex.side_effect = lambda template_key: True
+    dt_string = datetime.datetime.strftime(datetime.datetime(2023, 2, 1, 1, 2, 3), processor.dt_format)
 
-    processor.state_db = {'transaction_context': None, 'page': '2', 'contexts': {
-        'context_01_1': {
-            'asset_uuids': ['asset-uuid-0001', 'asset-uuid-0002'], 'starting_page': '2', 'last_event_id': '2'}}}
+    processor._save_to_sqlite_state({'transaction_context': None, 'page': '2'})
+    processor._save_to_sqlite_contexts(context_id='context_01_1', starting_page='2', last_event_id='2')
+    processor._save_to_sqlite_contexts_assets(context_id='context_01_1', append='asset-uuid-0001')
+    processor._save_to_sqlite_contexts_assets(context_id='context_01_1', append='asset-uuid-0002')
 
+    # function to test
     processor.process_all_entries(entries_to_process=[
         EntryObject(id='4', updated=datetime.datetime(2023, 2, 1, 1, 2, 3), content=ContentObject(value=AtomValueObject(
             _type='ASSET_KENMERK_EIGENSCHAP_VALUES_UPDATED', _typeVersion=1, contextId='context_01',
             aggregateId=AggregateIdObject(uuid='asset-uuid-0004'))))])
 
-    assert processor.state_db['event_id'] == '4'
-    assert processor.state_db['transaction_context'] == 'context_01_4'
-    assert 'context_01_4' in processor.state_db['contexts']
-    assert processor.state_db['contexts']['context_01_4']['asset_uuids'] == ['asset-uuid-0004']
-    assert processor.state_db['contexts']['context_01_4']['starting_page'] == '2'
-    assert processor.state_db['contexts']['context_01_4']['last_event_id'] == '4'
-    assert processor.state_db['contexts']['context_01_4']['last_processed_event'] == datetime.datetime(2023, 2, 1, 1, 2,
-                                                                                                       3)
-    delete_unittest_shelve(shelve_name)
+    # assertions
+    assert processor.state_db == {'event_id': '4', 'page': '2', 'transaction_context': 'context_01_4'}
+    conn = sqlite3.connect(THIS_FOLDER / 'used_sqlite.db')
+    c = conn.cursor()
+    c.execute('''SELECT id, starting_page, last_event_id, last_processed_event FROM contexts''')
+    contexts_rows = [row for row in c.fetchall()]
+    c.execute('''SELECT context_id, asset_uuid FROM contexts_assets''')
+    contexts_assets_rows = [row for row in c.fetchall()]
+    conn.commit()
+    conn.close()
+    assert contexts_rows == [('context_01_1', '2', '2', None), ('context_01_4', '2', '4', dt_string)]
+    assert contexts_assets_rows == [('context_01_1', 'asset-uuid-0001'), ('context_01_1', 'asset-uuid-0002'),
+                                    ('context_01_4', 'asset-uuid-0004')]
