@@ -128,7 +128,7 @@ class TypeTemplateToAssetProcessor:
                 # add any assets with a valid template key if they are using the same context_id
                 if context_id is not None and self.state_db['transaction_context'].startswith(context_id):
                     self._save_to_sqlite_contexts(context_id=self.state_db['transaction_context'],
-                                                  last_event_id=entry.id, last_processed_event=entry.updated,)
+                                                  last_event_id=entry.id, last_processed_event=entry.updated, )
                     self._save_to_sqlite_contexts_assets(context_id=self.state_db['transaction_context'],
                                                          append=asset_uuid)
                 else:
@@ -210,10 +210,6 @@ class TypeTemplateToAssetProcessor:
             ns = 'installatie'
         return ns, self.rest_client.get_eigenschapwaarden(ns=ns, uuid=asset_uuid)
 
-    def _show_shelve(self) -> None:
-        for key in self.state_db.keys():
-            print(f'{key}: {self.state_db[key]}')
-
     def _save_to_sqlite_state(self, entries: Dict) -> None:
         if len(entries.items()) == 0:
             return
@@ -240,13 +236,6 @@ class TypeTemplateToAssetProcessor:
 
         conn.commit()
         conn.close()
-
-    def _save_to_shelf(self, entries: Dict) -> None:
-        with shelve.open(str(self.shelve_path), writeback=True) as db:
-            for k, v in entries.items():
-                db[k] = v
-
-            self.state_db = dict(db)
 
     def save_last_event(self):
         while True:
@@ -416,26 +405,26 @@ class TypeTemplateToAssetProcessor:
                              'single_upload': None})
 
     def perform_davie_aanlevering(self, reference: str, file_path: Path, event_id: str):
-        if event_id not in self.state_db['tracked_aanleveringen']:
+        aanlevering = self.get_aanlevering_by_event_id(event_id=event_id)
+        if aanlevering is None:
             aanlevering = self.davie_client.create_aanlevering_employee(
                 niveau='LOG-1', referentie=reference,
                 verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')
 
-            existing_aanleveringen = self.state_db['tracked_aanleveringen']
-            existing_aanleveringen[event_id] = {'aanlevering_id': aanlevering.id, 'state': 'created'}
-            self._save_to_shelf(entries={'tracked_aanleveringen': existing_aanleveringen})
+            aanlevering_id = aanlevering.id
+            self._save_to_sqlite_aanleveringen(event_id=event_id, aanlevering_id=aanlevering_id, state='created')
+            aanlevering = self.get_aanlevering_by_event_id(event_id=event_id)
+        else:
+            aanlevering_id = aanlevering[1]
 
-        aanlevering_id = self.state_db['tracked_aanleveringen'][event_id]['aanlevering_id']
-
-        if self.state_db['tracked_aanleveringen'][event_id]['state'] == 'created':
+        if aanlevering[2] == 'created':
             self.davie_client.upload_file(id=aanlevering_id, file_path=file_path)
+            self._save_to_sqlite_aanleveringen(event_id=event_id, state='uploaded')
+            aanlevering = self.get_aanlevering_by_event_id(event_id=event_id)
 
-            existing_aanleveringen = self.state_db['tracked_aanleveringen']
-            existing_aanleveringen[event_id] = {'aanlevering_id': aanlevering_id, 'state': 'uploaded'}
-            self._save_to_shelf(entries={'tracked_aanleveringen': existing_aanleveringen})
-
-        if self.state_db['tracked_aanleveringen'][event_id]['state'] == 'uploaded':
+        if aanlevering[2] == 'uploaded':
             self.davie_client.finalize_and_wait(id=aanlevering_id)
+            self._save_to_sqlite_aanleveringen(event_id=event_id, state='processed')
 
     def process_complex_template_using_transaction(self):
         context_entry = self.state_db['transaction_context']
@@ -459,17 +448,13 @@ class TypeTemplateToAssetProcessor:
         file_path = Path(f'temp/{context_entry}_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}.json')
         converter.create_file_from_assets(filepath=file_path, list_of_objects=objects_to_upload)
 
+        event_id = context_entry.split('_')[1]
         self.perform_davie_aanlevering(reference=f'type template processor event {context_entry}',
-                                       file_path=file_path, event_id=context_entry.split("_")[1])
+                                       file_path=file_path, event_id=event_id)
         os.unlink(file_path)
 
-        event_id = context_entry.split('_')[1]
-        existing_aanleveringen = self.state_db['tracked_aanleveringen']
-        del existing_aanleveringen[event_id]
-        self._save_to_shelf({'tracked_aanleveringen': existing_aanleveringen,
-                             'transaction_context': None, 'event_id': event_id,
-                             'page': self.state_db['contexts'][context_entry]['starting_page']})
-
+        context = self.get_context_by_context_id(context_id=context_entry)
+        self._save_to_sqlite_state({event_id: event_id, 'transaction_context': None, 'page': context[1]})
 
     def has_last_processed_been_too_long(self, current_updated: datetime,
                                          max_interval_in_minutes: int = 1) -> bool:
@@ -564,10 +549,41 @@ CREATE TABLE contexts_assets
 (context_id text,
 asset_uuid text,
 FOREIGN KEY (context_id) REFERENCES contexts (id));
-            ''']:
+            ''','''
+CREATE TABLE aanleveringen
+(event_id text PRIMARY KEY,
+aanlevering_id text,
+state text);
+''']:
                 c.execute(q)
             conn.commit()
             conn.close()
+
+    def _save_to_sqlite_aanleveringen(self, event_id: str, aanlevering_id: str = None, state: str = None):
+        conn = sqlite3.connect(self.sqlite_path)
+        c = conn.cursor()
+        c.execute('''SELECT event_id FROM aanleveringen WHERE event_id = ?''', (event_id,))
+        if c.fetchone() is None:
+            c.execute('''INSERT INTO aanleveringen VALUES (?, ?, ?)''', (event_id, aanlevering_id, state))
+            conn.commit()
+            conn.close()
+            return
+        if aanlevering_id is not None:
+            c.execute('''UPDATE aanleveringen SET aanlevering_id = ? WHERE event_id = ?''', (aanlevering_id, event_id))
+        if state is not None:
+            c.execute('''UPDATE aanleveringen SET state = ? WHERE event_id = ?''', (state, event_id))
+        conn.commit()
+        conn.close()
+
+    def get_aanlevering_by_event_id(self, event_id: str) -> tuple:
+        conn = sqlite3.connect(self.sqlite_path)
+        c = conn.cursor()
+
+        c.execute('''SELECT event_id, aanlevering_id, state FROM aanleveringen WHERE event_id = ?''', (event_id,))
+        row = c.fetchone()
+        conn.commit()
+        conn.close()
+        return row
 
     def _save_to_sqlite_contexts(self, context_id: str, starting_page: str = None,
                                  last_event_id: str = None, last_processed_event: str = None):
@@ -581,11 +597,9 @@ FOREIGN KEY (context_id) REFERENCES contexts (id));
             conn.close()
             return
         if starting_page is not None:
-            c.execute('''UPDATE contexts SET starting_page = ? WHERE id = ?''',
-                      (starting_page, context_id))
+            c.execute('''UPDATE contexts SET starting_page = ? WHERE id = ?''', (starting_page, context_id))
         if last_event_id is not None:
-            c.execute('''UPDATE contexts SET last_event_id = ? WHERE id = ?''',
-                      (last_event_id, context_id))
+            c.execute('''UPDATE contexts SET last_event_id = ? WHERE id = ?''', (last_event_id, context_id))
         if last_processed_event is not None:
             c.execute('''UPDATE contexts SET last_processed_event = ? WHERE id = ?''',
                       (last_processed_event, context_id))
@@ -609,7 +623,8 @@ FOREIGN KEY (context_id) REFERENCES contexts (id));
         conn = sqlite3.connect(self.sqlite_path)
         c = conn.cursor()
 
-        c.execute('''SELECT id, starting_page, last_event_id, last_processed_event FROM contexts WHERE id = ?''', (context_id,))
+        c.execute('''SELECT id, starting_page, last_event_id, last_processed_event FROM contexts WHERE id = ?''',
+                  (context_id,))
         row = c.fetchone()
 
         conn.commit()

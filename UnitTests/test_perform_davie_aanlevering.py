@@ -1,6 +1,7 @@
 import datetime
 import datetime
 import pathlib
+import sqlite3
 import types
 from collections import namedtuple
 from pathlib import Path
@@ -37,28 +38,71 @@ def create_processor_unittest_sqlite(sqlite_name: str) -> (EMInfraRestClient, Ty
     return rest_client, processor
 
 
-def test_perform_davie_aanlevering_not_tracked():
-    def alt_save_to_shelf(self, entries: dict):
-        for k, v in entries.items():
-            self.state_db[k] = v
-        raise StopIteration
-    TypeTemplateToAssetProcessor._save_to_shelf = alt_save_to_shelf
-
+def test_perform_davie_aanlevering_not_tracked_to_created():
+    # setup
     _, processor = create_processor_unittest_sqlite('used_sqlite.db')
     processor.davie_client = Mock()
     Aanlevering = namedtuple('Aanlevering', ['id'])
-    processor.davie_client.create_aanlevering_employee = Mock(return_value=Aanlevering(id='0001'))
-    processor.state_db = {'tracked_aanleveringen': {'2': {'aanlevering_id': '0002', 'state': 'created'}}}
+    processor.davie_client.create_aanlevering_employee = Mock(return_value=Aanlevering(id='0002'))
+    processor.davie_client.upload_file = Mock(side_effect=StopIteration)
+    processor._save_to_sqlite_aanleveringen(event_id='1', aanlevering_id='0001', state='created')
+
     reference = 'ref'
+    file_path = Path('test_perform_davie_aanlevering.py')
+    event_id = '2'
+
+    with pytest.raises(StopIteration):
+        # function to test
+        processor.perform_davie_aanlevering(reference=reference, file_path=file_path, event_id=event_id)
+
+        # assertions
+        assert processor.davie_client.create_aanlevering_employee.call_args_list == [call(
+            niveau='LOG-1', referentie='ref', verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')]
+
+        aanlevering_1 = processor.get_aanlevering_by_event_id(event_id='1')
+        assert aanlevering_1 == ('1', '0001', 'created')
+        aanlevering_2 = processor.get_aanlevering_by_event_id(event_id='2')
+        assert aanlevering_2 == ('2', '0002', 'created')
+
+
+def test_perform_davie_aanlevering_created_to_uploaded():
+    # setup
+    _, processor = create_processor_unittest_sqlite('used_sqlite.db')
+    processor.davie_client = Mock()
+    processor.davie_client.upload_file = Mock()
+    processor.davie_client.finalize_and_wait = Mock(side_effect=StopIteration)
+    processor._save_to_sqlite_aanleveringen(event_id='1', aanlevering_id='0001', state='created')
+
     file_path = Path('test_perform_davie_aanlevering.py')
     event_id = '1'
 
     with pytest.raises(StopIteration):
-        processor.perform_davie_aanlevering(reference=reference, file_path=file_path, event_id=event_id)
+        # function to test
+        processor.perform_davie_aanlevering(reference='', file_path=file_path, event_id=event_id)
 
-        assert processor.davie_client.create_aanlevering_employee.call_args_list == [call(
-            niveau='LOG-1', referentie='ref', verificatorId='6c2b7c0a-11a9-443a-a96b-a1bec249c629')]
-        assert processor.state_db == {'tracked_aanleveringen': {
-            '1': {'aanlevering_id': '0001', 'state': 'created'},
-            '2': {'aanlevering_id': '0002', 'state': 'created'}}}
+        # assertions
+        assert processor.davie_client.upload_file.call_args_list == [call(
+            id='0001', file_path=file_path)]
 
+        aanlevering_1 = processor.get_aanlevering_by_event_id(event_id='1')
+        assert aanlevering_1 == ('1', '0001', 'uploaded')
+
+
+def test_perform_davie_aanlevering_uploaded_to_processed():
+    # setup
+    _, processor = create_processor_unittest_sqlite('used_sqlite.db')
+    processor.rest_client.get_feedpage = Mock(side_effect=StopIteration)
+    processor.davie_client = Mock()
+    processor.davie_client.finalize_and_wait = Mock()
+    processor._save_to_sqlite_aanleveringen(event_id='1', aanlevering_id='0001', state='uploaded')
+
+    file_path = Path('test_perform_davie_aanlevering.py')
+    event_id = '1'
+
+    # function to test
+    processor.perform_davie_aanlevering(reference='', file_path=file_path, event_id=event_id)
+
+    # assertions
+    assert processor.davie_client.finalize_and_wait.call_args_list == [call(id='0001')]
+    aanlevering_1 = processor.get_aanlevering_by_event_id(event_id='1')
+    assert aanlevering_1 == ('1', '0001', 'processed')
