@@ -7,7 +7,10 @@ from otlmow_davie.Enums import AuthenticationType, Environment
 from TypeTemplateToAssetProcessor import TypeTemplateToAssetProcessor
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)-8s %(message)s',
+        level=logging.INFO,
+        datefmt='%Y-%m-%d %H:%M:%S')
     settings_path = Path('/home/davidlinux/Documents/AWV/resources/settings_TypeTemplateProcessor.json')
 
     this_directory = pathlib.Path(__file__).parent

@@ -33,6 +33,7 @@ class TypeTemplateToAssetProcessor:
         self.create_sqlite_if_not_exists(sqlite_path)
 
         self.state_db: dict = {}
+        self._load_state_db()
 
         self.postenmapping_dict: Dict = PostenMappingDict.mapping_dict
 
@@ -230,6 +231,16 @@ class TypeTemplateToAssetProcessor:
         # update
         for key in keys_to_update:
             c.execute('''UPDATE state SET value = ? WHERE name = ?''', (entries[key], key))
+
+        c.execute('SELECT name, value FROM state;')
+        self.state_db = {row[0]: row[1] for row in c.fetchall()}
+
+        conn.commit()
+        conn.close()
+
+    def _load_state_db(self) -> None:
+        conn = sqlite3.connect(self.sqlite_path)
+        c = conn.cursor()
 
         c.execute('SELECT name, value FROM state;')
         self.state_db = {row[0]: row[1] for row in c.fetchall()}
