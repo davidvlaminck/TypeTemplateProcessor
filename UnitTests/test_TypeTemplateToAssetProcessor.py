@@ -550,7 +550,7 @@ def test_process_all_entries_no_transaction_context_complex_template_no_context(
     # setup
     _, processor = create_processor_unittest_sqlite('used_sqlite.db')
     processor.process_complex_template_without_context = Mock()
-    processor.process_complex_template_without_context.side_effect = lambda asset_uuid, template_key, event_id: None
+    processor.process_complex_template_without_context.side_effect = lambda asset_uuid, event_id: None
     processor.get_valid_template_key_from_feedentry = Mock()
     processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
     processor.determine_if_template_is_complex = Mock()
