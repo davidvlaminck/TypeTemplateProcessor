@@ -105,4 +105,4 @@ def test_process_complex_template_without_context_full_run():
     # assertions
     assert processor.perform_davie_aanlevering.call_args_list[0][1]['reference'] == 'type template processor event event_id 1'
     assert processor.perform_davie_aanlevering.call_args_list[0][1]['event_id'] == '1'
-    assert processor.state_db == {'transaction_context': None, 'event_id': '1', 'page': '1'}
+    assert processor.state_db == {'transaction_context': None, 'page': '0'}
