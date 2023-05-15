@@ -1,3 +1,5 @@
 **/.pytest_cache
 **/__pycache__
 db_unittest_*
+unused_sqlite.db
+used_sqlite.db
