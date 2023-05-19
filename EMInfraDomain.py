@@ -9,6 +9,12 @@ class Link(BaseModel):
     rel: Optional[str] = None
 
 
+class EventContextDTO(BaseModel):
+    uuid: Optional[str] = None
+    omschrijving: Optional[str] = None
+    links: Optional[Sequence[Link]] = None
+
+
 class ResourceRefDTO(BaseModel):
     links: Optional[Sequence[Link]] = None
     uuid: Optional[str] = None

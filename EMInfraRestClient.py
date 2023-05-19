@@ -3,7 +3,7 @@ import json
 import time
 
 from EMInfraDomain import FeedPage, ListUpdateDTOKenmerkEigenschapValueUpdateDTO, KenmerkEigenschapValueDTOList, \
-    EigenschapDTOList, EigenschapDTO
+    EigenschapDTOList, EigenschapDTO, EventContextDTO
 
 
 class EMInfraRestClient:
@@ -126,3 +126,13 @@ class EMInfraRestClient:
                 paging_cursor = response.headers['em-paging-next-cursor']
             else:
                 break
+
+    def get_event_contexts(self, context_id: str) -> EventContextDTO:
+        response = self.request_handler.perform_get_request(
+            url=f'core/api/eventcontexts/{context_id}')
+        if response.status_code != 200:
+            print(response)
+            raise ProcessLookupError(response.content.decode("utf-8"))
+
+        response_string = response.content.decode("utf-8")
+        return EventContextDTO.parse_raw(response_string)
