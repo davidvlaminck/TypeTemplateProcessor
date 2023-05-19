@@ -74,3 +74,35 @@ def test_perform_davie_aanlevering_not_tracked_to_created():
     assert processor.perform_davie_aanlevering.call_args_list[0][1]['reference'] == 'type template processor event context-01_1'
     assert processor.perform_davie_aanlevering.call_args_list[0][1]['event_id'] == '1'
     assert processor.state_db == {'transaction_context': None, 'event_id': '1', 'page': '1'}
+
+
+def test_process_complex_template_without_context_full_run():
+    # setup
+    _, processor = create_processor_unittest_sqlite('used_sqlite.db')
+    processor.davie_client = Mock()
+    processor._save_to_sqlite_state({'transaction_context': None, 'page': '0'})
+    processor.rest_client.import_assets_from_webservice_by_uuids = Mock(side_effect=iter([[
+        {
+            "@type": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#WVLichtmast",
+            "@id": "https://data.awvvlaanderen.be/id/asset/00000000-0000-0000-0000-000000000000-b25kZXJkZWVsI1dWTGljaHRtYXN0",
+            "AIMObject.bestekPostNummer": [
+                "WVlichtmast_config1"
+            ],
+            "AIMObject.notitie": "",
+            "AIMToestand.toestand": "https://wegenenverkeer.data.vlaanderen.be/id/concept/KlAIMToestand/in-gebruik",
+            "AIMObject.assetId": {
+                "DtcIdentificator.identificator": "00000000-0000-0000-0000-000000000000-b25kZXJkZWVsI1dWTGljaHRtYXN0",
+                "DtcIdentificator.toegekendDoor": "AWV"
+            },
+            "AIMDBStatus.isActief": True,
+            "AIMObject.typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#WVLichtmast"
+        }]]))
+    processor.perform_davie_aanlevering = Mock()
+
+    # function to test
+    processor.process_complex_template_without_context(event_id='1', asset_uuid='00000000-0000-0000-0000-000000000000')
+
+    # assertions
+    assert processor.perform_davie_aanlevering.call_args_list[0][1]['reference'] == 'type template processor event event_id 1'
+    assert processor.perform_davie_aanlevering.call_args_list[0][1]['event_id'] == '1'
+    assert processor.state_db == {'transaction_context': None, 'page': '0'}

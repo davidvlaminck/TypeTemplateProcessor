@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="test_create_assets_from_template_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.2.1">coverage.py v7.2.1</a>,
-            created at 2023-05-10 14:59 +0000
+            created at 2023-05-15 14:43 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"/>
@@ -631,8 +631,8 @@
     <p class="run"><span class="n"><a id="t549" href="#t549">549</a></span><span class="t"><span class="key">def</span> <span class="nam">test_process_all_entries_no_transaction_context_complex_template_no_context</span><span class="op">(</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t550" href="#t550">550</a></span><span class="t">    <span class="com"># setup</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t551" href="#t551">551</a></span><span class="t">    <span class="nam">_</span><span class="op">,</span> <span class="nam">processor</span> <span class="op">=</span> <span class="nam">create_processor_unittest_sqlite</span><span class="op">(</span><span class="str">'used_sqlite.db'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t552" href="#t552">552</a></span><span class="t">    <span class="nam">processor</span><span class="op">.</span><span class="nam">process_complex_template_using_single_upload</span> <span class="op">=</span> <span class="nam">Mock</span><span class="op">(</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t553" href="#t553">553</a></span><span class="t">    <span class="nam">processor</span><span class="op">.</span><span class="nam">process_complex_template_using_single_upload</span><span class="op">.</span><span class="nam">side_effect</span> <span class="op">=</span> <span class="key">lambda</span> <span class="nam">asset_uuid</span><span class="op">,</span> <span class="nam">template_key</span><span class="op">,</span> <span class="nam">event_id</span><span class="op">:</span> <span class="key">None</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t552" href="#t552">552</a></span><span class="t">    <span class="nam">processor</span><span class="op">.</span><span class="nam">process_complex_template_without_context</span> <span class="op">=</span> <span class="nam">Mock</span><span class="op">(</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t553" href="#t553">553</a></span><span class="t">    <span class="nam">processor</span><span class="op">.</span><span class="nam">process_complex_template_without_context</span><span class="op">.</span><span class="nam">side_effect</span> <span class="op">=</span> <span class="key">lambda</span> <span class="nam">asset_uuid</span><span class="op">,</span> <span class="nam">event_id</span><span class="op">:</span> <span class="key">None</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t554" href="#t554">554</a></span><span class="t">    <span class="nam">processor</span><span class="op">.</span><span class="nam">get_valid_template_key_from_feedentry</span> <span class="op">=</span> <span class="nam">Mock</span><span class="op">(</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t555" href="#t555">555</a></span><span class="t">    <span class="nam">processor</span><span class="op">.</span><span class="nam">get_valid_template_key_from_feedentry</span><span class="op">.</span><span class="nam">side_effect</span> <span class="op">=</span> <span class="key">lambda</span> <span class="nam">_</span><span class="op">:</span> <span class="str">'valid_template_key'</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t556" href="#t556">556</a></span><span class="t">    <span class="nam">processor</span><span class="op">.</span><span class="nam">determine_if_template_is_complex</span> <span class="op">=</span> <span class="nam">Mock</span><span class="op">(</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
@@ -647,7 +647,7 @@
     <p class="pln"><span class="n"><a id="t565" href="#t565">565</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t566" href="#t566">566</a></span><span class="t">    <span class="com"># assertions</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t567" href="#t567">567</a></span><span class="t">    <span class="key">assert</span> <span class="nam">processor</span><span class="op">.</span><span class="nam">state_db</span> <span class="op">==</span> <span class="op">{</span><span class="str">'event_id'</span><span class="op">:</span> <span class="str">'id'</span><span class="op">,</span> <span class="str">'transaction_context'</span><span class="op">:</span> <span class="key">None</span><span class="op">}</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t568" href="#t568">568</a></span><span class="t">    <span class="key">assert</span> <span class="nam">processor</span><span class="op">.</span><span class="nam">process_complex_template_using_single_upload</span><span class="op">.</span><span class="nam">called</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t568" href="#t568">568</a></span><span class="t">    <span class="key">assert</span> <span class="nam">processor</span><span class="op">.</span><span class="nam">process_complex_template_without_context</span><span class="op">.</span><span class="nam">called</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t569" href="#t569">569</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t570" href="#t570">570</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t571" href="#t571">571</a></span><span class="t"><span class="key">def</span> <span class="nam">test_process_all_entries_no_transaction_context_complex_template_new_context</span><span class="op">(</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
@@ -768,7 +768,7 @@
             <a id="nextFileLink" class="nav" href="test_create_assets_from_template_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.2.1">coverage.py v7.2.1</a>,
-            created at 2023-05-10 14:59 +0000
+            created at 2023-05-15 14:43 +0000
         </p>
     </div>
 </footer>

@@ -549,8 +549,8 @@ def test_process_all_entries_transaction_context_process_entry_without_context_l
 def test_process_all_entries_no_transaction_context_complex_template_no_context():
     # setup
     _, processor = create_processor_unittest_sqlite('used_sqlite.db')
-    processor.process_complex_template_using_single_upload = Mock()
-    processor.process_complex_template_using_single_upload.side_effect = lambda asset_uuid, template_key, event_id: None
+    processor.process_complex_template_without_context = Mock()
+    processor.process_complex_template_without_context.side_effect = lambda asset_uuid, event_id: None
     processor.get_valid_template_key_from_feedentry = Mock()
     processor.get_valid_template_key_from_feedentry.side_effect = lambda _: 'valid_template_key'
     processor.determine_if_template_is_complex = Mock()
@@ -565,7 +565,7 @@ def test_process_all_entries_no_transaction_context_complex_template_no_context(
 
     # assertions
     assert processor.state_db == {'event_id': 'id', 'transaction_context': None}
-    assert processor.process_complex_template_using_single_upload.called
+    assert processor.process_complex_template_without_context.called
 
 
 def test_process_all_entries_no_transaction_context_complex_template_new_context():

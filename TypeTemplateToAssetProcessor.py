@@ -154,8 +154,8 @@ class TypeTemplateToAssetProcessor:
 
                 # if doesn't have a context (DAVIE was not used), apply the template by using a DAVIE upload
                 if context_id is None:
-                    self.process_complex_template_using_single_upload(
-                        asset_uuid=asset_uuid, template_key=template_key, event_id=entry.id)
+                    self.process_complex_template_without_context(
+                        asset_uuid=asset_uuid, event_id=entry.id)
                     self._save_to_sqlite_state({'event_id': entry.id})
                     end = time.time()
                     logging.info(f'processed type_template in {round(end - start, 2)} seconds')
@@ -407,13 +407,12 @@ class TypeTemplateToAssetProcessor:
             self.davie_client.finalize_and_wait(id=aanlevering_id)
             self._save_to_sqlite_aanleveringen(event_id=event_id, state='processed')
 
-    def process_complex_template_using_single_upload(self, event_id: str, asset_uuid: str, template_key: str) -> None:
-        self._save_to_shelf({'single_upload': event_id})
+    def process_complex_template_without_context(self, event_id: str, asset_uuid: str) -> None:
+        # create generator for list
+        asset_uuids = [asset_uuid]
 
-        asset_dict = next(self.rest_client.import_assets_from_webservice_by_uuids(asset_uuids=[asset_uuid]))
-        object_to_process = EMInfraDecoder().decode_json_object(obj=asset_dict)
-
-        objects_to_upload = []
+        asset_dicts = self.rest_client.import_assets_from_webservice_by_uuids(asset_uuids=asset_uuids)
+        object_to_process = [EMInfraDecoder().decode_json_object(asset_dict) for asset_dict in asset_dicts][0]
 
         valid_postnummers = [postnummer for postnummer in object_to_process.bestekPostNummer
                              if postnummer in self.postenmapping_dict]
@@ -421,21 +420,20 @@ class TypeTemplateToAssetProcessor:
         if len(valid_postnummers) != 1:
             return
 
+        objects_to_upload = []
         objects_to_upload.extend(self.create_assets_from_template(base_asset=object_to_process, asset_index=0,
                                                                   template_key=valid_postnummers[0]))
 
         converter = OtlmowConverter()
+
+        if not os.path.exists('temp'):
+            os.makedirs('temp')
         file_path = Path(f'temp/{event_id}_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}.json')
         converter.create_file_from_assets(filepath=file_path, list_of_objects=objects_to_upload)
 
-        self.perform_davie_aanlevering(reference=f'type template processor event {event_id}',
+        self.perform_davie_aanlevering(reference=f'type template processor event event_id {event_id}',
                                        event_id=event_id, file_path=file_path)
         os.unlink(file_path)
-
-        existing_aanleveringen = self.state_db['tracked_aanleveringen']
-        del existing_aanleveringen[event_id]
-        self._save_to_shelf({'tracked_aanleveringen': existing_aanleveringen,
-                             'single_upload': None})
 
     def process_complex_template_using_transaction(self):
         context_entry = self.state_db['transaction_context']
