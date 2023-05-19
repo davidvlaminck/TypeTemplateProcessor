@@ -94,18 +94,19 @@ class TypeTemplateToAssetProcessor:
                 self.wait_seconds(60)
                 continue
             entries_to_process = self.get_entries_to_process(current_page, self.state_db['event_id'])
-            if len(entries_to_process) == 0 and self.state_db['transaction_context'] is None:
+            if len(entries_to_process) == 0:
                 previous_link = next((link for link in current_page.links if link.rel == 'previous'), None)
-                if previous_link is None:
-                    logging.info('No events to process, trying again in 10 seconds.')
-                    self.wait_seconds()
-                    continue
-                else:
+                if previous_link is not None:
                     logging.info(f"Done processing page {self.state_db['page']}. Going to the next.")
                     self._save_to_sqlite_state({'page': previous_link.href.split('/')[1]})
-                    continue
-
-            self.process_all_entries(entries_to_process)
+                else:
+                    if self.state_db['transaction_context'] is None:
+                        logging.info('No events to process, trying again in 10 seconds.')
+                        self.wait_seconds()
+                    else:
+                        self.process_complex_template_using_transaction()
+            else:
+                self.process_all_entries(entries_to_process)
 
     def process_all_entries(self, entries_to_process: List[EntryObject]):
         if len(entries_to_process) == 0 and self.state_db['transaction_context'] is not None:

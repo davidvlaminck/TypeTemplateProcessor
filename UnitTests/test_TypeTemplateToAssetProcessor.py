@@ -677,3 +677,36 @@ def test_process_all_entries_no_transaction_context_complex_template_existing_co
     assert contexts_rows == [('context_01_1', '2', '2', None), ('context_01_4', '2', '4', dt_string)]
     assert contexts_assets_rows == [('context_01_1', 'asset-uuid-0001'), ('context_01_1', 'asset-uuid-0002'),
                                     ('context_01_4', 'asset-uuid-0004')]
+
+
+def test_process_loop_events_same_context_across_multiple_pages():
+    rest_client, processor = create_processor_unittest_sqlite('used_sqlite.db')
+    processor._save_to_sqlite_state({'page': '30', 'event_id': '3098'})
+    processor.postenmapping_dict = {'valid_template_key': {}}
+
+    def exit_loop():
+        raise StopIteration
+
+    processor.wait_seconds = Mock()
+    processor.wait_seconds.side_effect = exit_loop
+    processor.process_complex_template_using_transaction = Mock()
+    processor.process_complex_template_using_transaction.side_effect = exit_loop
+    processor.determine_if_template_is_complex = Mock()
+    processor.determine_if_template_is_complex.side_effect = lambda template_key: True
+    rest_client.get_feedpage = Mock()
+    rest_client.get_feedpage.side_effect = return_fake_feedpage_without_new_entries
+
+    processor.process()
+
+    assert processor.process_complex_template_using_transaction.called
+    assert processor.state_db['page'] == '31'
+    conn = sqlite3.connect(THIS_FOLDER / 'used_sqlite.db')
+    c = conn.cursor()
+    c.execute('''SELECT id, starting_page, last_event_id, last_processed_event FROM contexts''')
+    contexts_rows = [row for row in c.fetchall()]
+    c.execute('''SELECT context_id, asset_uuid FROM contexts_assets''')
+    contexts_assets_rows = [row for row in c.fetchall()]
+    conn.commit()
+    conn.close()
+    assert contexts_rows == [('context01_3099', '30', '3101', '2023-02-01 01:02:04')]
+    assert contexts_assets_rows == [('context01_3099', '0001'), ('context01_3099', '0002')]
