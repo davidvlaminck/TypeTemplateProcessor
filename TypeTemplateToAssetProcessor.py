@@ -270,8 +270,12 @@ class TypeTemplateToAssetProcessor:
         value_to = entry.content.value.to
         try:
             if self._environment == Environment.dev:
+                if '62fc3961-b59b-4f42-a27d-74f50e87130f' not in value_to['values']:
+                    return None
                 postnummer_kenmerk = value_to['values']['62fc3961-b59b-4f42-a27d-74f50e87130f']
             else:
+                if '21164e07-2648-4580-b7f3-f0e291fbf6df' not in value_to['values']:
+                    return None
                 postnummer_kenmerk = value_to['values']['21164e07-2648-4580-b7f3-f0e291fbf6df']
         except (TypeError, KeyError):
             return None

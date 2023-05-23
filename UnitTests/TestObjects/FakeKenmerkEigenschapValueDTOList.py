@@ -15,7 +15,7 @@ def return_fake_attribute_list(*args, **kwargs):
     elif kwargs['ns'] == 'installatie' and kwargs['uuid'] == '00000000-0000-0000-0000-000000000002':
         return fake_attribute_list2
     else:
-        return Exception("exception occurred")
+        raise Exception("exception occurred")
 
 
 eig1 = KenmerkEigenschapValueDTO(
