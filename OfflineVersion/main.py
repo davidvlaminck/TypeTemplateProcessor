@@ -24,6 +24,6 @@ if __name__ == '__main__':
 
     for lichtmast in [asset for asset in alle_assets
                       if asset.typeURI == 'https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#WVLichtmast']:
-        lichtmast.bestekPostNummer = None  # verwijder de template manueel (= workaround bug)
+        lichtmast.bestekPostNummer = None  # verwijder de template key manueel (= workaround bug)
 
     converter.create_file_from_assets(list_of_objects=alle_assets, filepath=export_file_path)
