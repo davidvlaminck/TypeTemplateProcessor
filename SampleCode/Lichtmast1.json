@@ -1,0 +1,114 @@
+[
+    {
+        "aantalArmen": "0",
+        "armlengte": "niet-van-toepassing",
+        "assetId": {
+            "identificator": "Lichtmast1",
+            "toegekendDoor": "AWV"
+        },
+        "beschermlaag": "gegalvaniseerd",
+        "dwarsdoorsnede": "octagonaal",
+        "heeftStopcontact": false,
+        "masthoogte": {
+            "standaardHoogte": "10.00"
+        },
+        "bestekPostNummer": [
+            "WVlichtmast_config1"
+        ],
+        "masttype": "RM",
+        "normeringBotsvriendelijk": "niet-botsvriendelijke-mast",
+        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#WVLichtmast"
+    },
+    {
+        "assetId": {
+            "identificator": "Bevestiging1_0"
+        },
+        "bronAssetId": {
+            "identificator": "Lichtmast1"
+        },
+        "doelAssetId": {
+            "identificator": "VerlichtingstoestelLED1_0"
+        },
+        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Bevestiging"
+    },
+    {
+        "aantalTeVerlichtenRijstroken": "2",
+        "assetId": {
+            "identificator": "VerlichtingstoestelLED1_0"
+        },
+        "heeftAntiVandalisme": false,
+        "isFaunavriendelijk": false,
+        "isLijnvormig": false,
+        "kleurArmatuur": "ral-7038",
+        "lichtpuntHoogte": "10",
+        "lumenOutput": "12500",
+        "merk": "Schreder",
+        "modelnaam": "izylum",
+        "toestand": "in-gebruik",
+        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VerlichtingstoestelLED"
+    },
+    {
+        "assetId": {
+            "identificator": "LEDdriver1_0"
+        },
+        "toestand": "in-gebruik",
+        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#LEDDriver"
+    },
+    {
+        "assetId": {
+            "identificator": "Bevestiging3_0"
+        },
+        "bronAssetId": {
+            "identificator": "VerlichtingstoestelLED1_0"
+        },
+        "doelAssetId": {
+            "identificator": "LEDdriver1_0"
+        },
+        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Bevestiging"
+    },
+    {
+        "assetId": {
+            "identificator": "Sturing1_0"
+        },
+        "bronAssetId": {
+            "identificator": "VerlichtingstoestelLED1_0"
+        },
+        "doelAssetId": {
+            "identificator": "LEDdriver1_0"
+        },
+        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Sturing"
+    },
+    {
+        "assetId": {
+            "identificator": "Bevestiging4_0"
+        },
+        "bronAssetId": {
+            "identificator": "VerlichtingstoestelLED1_0"
+        },
+        "doelAssetId": {
+            "identificator": "Armatuurcontroller1_0"
+        },
+        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Bevestiging"
+    },
+    {
+        "assetId": {
+            "identificator": "Armatuurcontroller1_0"
+        },
+        "isDummydot": false,
+        "merk": "Smartnodes",
+        "toestand": "in-gebruik",
+        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#Armatuurcontroller"
+    },
+    {
+        "assetId": {
+            "identificator": "VoedtAangestuurd1_0"
+        },
+        "bronAssetId": {
+            "identificator": "Armatuurcontroller1_0"
+        },
+        "doelAssetId": {
+            "identificator": "LEDdriver1_0"
+        },
+        "typeURI": "https://wegenenverkeer.data.vlaanderen.be/ns/onderdeel#VoedtAangestuurd"
+    }
+]

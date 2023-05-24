@@ -1,0 +1,2 @@
+class ValidBaseAssetMissingError(ValueError):
+    pass

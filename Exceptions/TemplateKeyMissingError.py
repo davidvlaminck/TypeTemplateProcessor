@@ -1,0 +1,2 @@
+class TemplateKeyMissingError(ValueError):
+    pass
