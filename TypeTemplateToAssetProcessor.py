@@ -28,27 +28,26 @@ from SettingsManager import SettingsManager
 
 class TypeTemplateToAssetProcessor:
     def __init__(self, sqlite_path: Path, settings_path: Path, auth_type: AuthenticationType, environment: Environment,
-                 postenmapping_path: Path):
-        self.sqlite_path: Path = sqlite_path
-        self.create_sqlite_if_not_exists(sqlite_path)
-
-        self.state_db: dict = {}
-        self._load_state_db()
-
+                 postenmapping_path: Path = None, offline: bool = False):
         self.postenmapping_dict: Dict = PostenMappingDict.mapping_dict
-
-        self._create_rest_client_based_on_settings(auth_type, environment, settings_path)
-
-        self._settings_path = settings_path
-        self._auth_type = auth_type
-        self._environment = environment
-
         self.dt_format = '%Y-%m-%dT%H:%M:%SZ'
 
-        THIS_DIRECTORY = Path(__file__).parent
-        davie_settings_path = Path(THIS_DIRECTORY / 'settings_davie.json')
-        shelve_path = Path(THIS_DIRECTORY / 'davie_shelve')
-        self._create_davie_client_based_on_settings(auth_type, shelve_path, environment, davie_settings_path)
+        if not offline:
+            self.sqlite_path: Path = sqlite_path
+            self.create_sqlite_if_not_exists(sqlite_path)
+
+            self.state_db: dict = {}
+            self._load_state_db()
+            self._create_rest_client_based_on_settings(auth_type, environment, settings_path)
+
+            self._settings_path = settings_path
+            self._auth_type = auth_type
+            self._environment = environment
+
+            THIS_DIRECTORY = Path(__file__).parent
+            davie_settings_path = Path(THIS_DIRECTORY / 'settings_davie.json')
+            shelve_path = Path(THIS_DIRECTORY / 'davie_shelve')
+            self._create_davie_client_based_on_settings(auth_type, shelve_path, environment, davie_settings_path)
 
     def _create_davie_client_based_on_settings(self, auth_type, shelve_path, environment, davie_settings_path):
         self.davie_client = DavieClient(settings_path=davie_settings_path,
@@ -446,17 +445,7 @@ class TypeTemplateToAssetProcessor:
         asset_dicts = self.rest_client.import_assets_from_webservice_by_uuids(asset_uuids=asset_uuids)
         objects_to_process = [EMInfraDecoder().decode_json_object(asset_dict) for asset_dict in asset_dicts]
 
-        objects_to_upload = []
-        for object_nr, object_to_process in enumerate(objects_to_process):
-            valid_postnummers = [postnummer for postnummer in object_to_process.bestekPostNummer
-                                 if postnummer in self.postenmapping_dict]
-
-            if len(valid_postnummers) != 1:
-                continue
-
-            objects_to_upload.extend(self.create_assets_from_template(base_asset=object_to_process,
-                                                                      template_key=valid_postnummers[0],
-                                                                      asset_index=object_nr))
+        objects_to_upload = self.process_objects_using_template(objects_to_process)
 
         converter = OtlmowConverter()
 
@@ -472,6 +461,20 @@ class TypeTemplateToAssetProcessor:
 
         context = self.get_context_by_context_id(context_id=context_entry)
         self._save_to_sqlite_state({'event_id': event_id, 'transaction_context': None, 'page': context[1]})
+
+    def process_objects_using_template(self, objects_to_process):
+        objects_to_upload = []
+        for object_nr, object_to_process in enumerate(objects_to_process):
+            valid_postnummers = [postnummer for postnummer in object_to_process.bestekPostNummer
+                                 if postnummer in self.postenmapping_dict]
+
+            if len(valid_postnummers) != 1:
+                continue
+
+            objects_to_upload.extend(self.create_assets_from_template(base_asset=object_to_process,
+                                                                      template_key=valid_postnummers[0],
+                                                                      asset_index=object_nr))
+        return objects_to_upload
 
     def has_last_processed_been_too_long(self, current_updated: datetime,
                                          max_interval_in_minutes: int = 1) -> bool:
